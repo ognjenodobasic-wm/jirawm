@@ -39,6 +39,7 @@ export interface IssueTypeMeta {
 export interface BulkTask {
   id: string;
   summary: string;
+  description?: string;
   screenshotBase64: string;
   status: 'waiting' | 'creating' | 'uploading' | 'done' | 'failed';
   issueKey?: string;

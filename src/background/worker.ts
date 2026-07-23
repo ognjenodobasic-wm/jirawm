@@ -3,6 +3,14 @@ import { getLocal, getSync, setLocal } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot } from '../lib/jira';
 
+function toADF(text: string): object {
+  return {
+    type: 'doc',
+    version: 1,
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  };
+}
+
 const BULK_PROGRESS_KEY = 'jirawm_bulk_progress';
 
 type BulkMessage = {
@@ -82,6 +90,9 @@ async function processBulkTasks(tasks: BulkTask[], workflowId: string): Promise<
       await saveProgress(progress);
 
       const fields: Record<string, unknown> = buildWorkflowFields(workflow);
+      if (task.description?.trim()) {
+        fields.description = toADF(task.description.trim());
+      }
 
       const issue = await createIssue({
         summary: task.summary,

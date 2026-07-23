@@ -10,6 +10,7 @@ interface BulkRow {
   file: File;
   preview: string;
   summary: string;
+  description: string;
   status: BulkRowStatus;
   issueKey?: string;
   error?: string;
@@ -37,6 +38,8 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxPreview, setLightboxPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -48,6 +51,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
       file,
       preview: URL.createObjectURL(file),
       summary: '',
+      description: '',
       status: 'waiting',
     }));
     setRows((prev) => [...prev, ...newRows]);
@@ -81,6 +85,18 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, summary } : row)));
   }
 
+  function updateDescription(id: string, description: string) {
+    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, description } : row)));
+  }
+
+  function removeRow(id: string) {
+    setRows((prev) => {
+      const row = prev.find((r) => r.id === id);
+      if (row) URL.revokeObjectURL(row.preview);
+      return prev.filter((r) => r.id !== id);
+    });
+  }
+
   function clearAll() {
     rows.forEach((row) => URL.revokeObjectURL(row.preview));
     setRows([]);
@@ -98,6 +114,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
       tasks.push({
         id: row.id,
         summary: row.summary || row.file.name,
+        description: row.description,
         screenshotBase64: base64,
         status: 'waiting',
       });
@@ -171,9 +188,39 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
     };
   }, []);
 
+  function openLightbox(preview: string) {
+    setLightboxPreview(preview);
+    setLightboxOpen(true);
+  }
+
+  function closeLightbox() {
+    setLightboxOpen(false);
+    setLightboxPreview(null);
+  }
+
   if (!isAuthed) {
     return <ConnectJiraPrompt onOpenSettings={onOpenSettings} />;
   }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    border: '1px solid var(--chrome-border)',
+    borderRadius: '4px',
+    padding: '4px 6px',
+    fontSize: '12px',
+    background: 'var(--chrome-bg)',
+    color: 'var(--chrome-text-primary)',
+    outline: 'none',
+    boxSizing: 'border-box',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: 500,
+    color: 'var(--chrome-text-secondary)',
+    marginBottom: '2px',
+  };
 
   return (
     <div className="flex flex-col h-full p-3 gap-3">
@@ -221,80 +268,108 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
         />
       </div>
 
-      {/* Task table */}
+      {/* Task cards */}
       {rows.length > 0 && (
         <div
-          className="flex-1 rounded overflow-hidden"
+          className="flex-1 flex flex-col gap-2"
           style={{
-            border: '1px solid var(--chrome-border)',
             overflowY: 'auto',
+            paddingRight: '4px',
           }}
         >
-          <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
-            <thead
-              className="sticky top-0"
-              style={{ background: 'var(--chrome-surface)', color: 'var(--chrome-text-secondary)' }}
+          {rows.map((row, index) => (
+            <div
+              key={row.id}
+              className="rounded p-2 space-y-2"
+              style={{
+                border: '1px solid var(--chrome-border)',
+                background: 'var(--chrome-surface)',
+              }}
             >
-              <tr>
-                <th className="text-left px-2 py-1" style={{ borderBottom: '1px solid var(--chrome-border)' }}>#</th>
-                <th className="text-left px-2 py-1" style={{ borderBottom: '1px solid var(--chrome-border)' }}>Preview</th>
-                <th className="text-left px-2 py-1" style={{ borderBottom: '1px solid var(--chrome-border)' }}>Summary *</th>
-                <th className="text-left px-2 py-1" style={{ borderBottom: '1px solid var(--chrome-border)' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr key={row.id}>
-                  <td className="px-2 py-1" style={{ borderBottom: '1px solid var(--chrome-border)', color: 'var(--chrome-text-secondary)' }}>
-                    {index + 1}
-                  </td>
-                  <td className="px-2 py-1" style={{ borderBottom: '1px solid var(--chrome-border)' }}>
-                    <img
-                      src={row.preview}
-                      alt={row.file.name}
-                      style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 2 }}
-                    />
-                  </td>
-                  <td className="px-2 py-1" style={{ borderBottom: '1px solid var(--chrome-border)' }}>
-                    <input
-                      type="text"
-                      value={row.summary}
-                      onChange={(e) => updateSummary(row.id, e.target.value)}
-                      placeholder="Subtask summary"
-                      disabled={isProcessing}
-                      className="w-full py-0.5 px-1"
-                      style={{
-                        border: '1px solid var(--chrome-border)',
-                        borderRadius: 0,
-                        background: 'var(--chrome-bg)',
-                        color: 'var(--chrome-text-primary)',
-                        outline: 'none',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                  </td>
-                  <td className="px-2 py-1" style={{ borderBottom: '1px solid var(--chrome-border)', color: 'var(--chrome-text-secondary)' }}>
-                    {row.status === 'waiting' && '⏸️ Waiting'}
-                    {row.status === 'creating' && '⏳ Creating…'}
-                    {row.status === 'uploading' && '📤 Uploading…'}
-                    {row.status === 'done' && row.issueKey && (
-                      <a
-                        href={`https://${domain}.atlassian.net/browse/${row.issueKey}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: 'var(--chrome-blue)', textDecoration: 'underline' }}
-                      >
-                        {row.issueKey}
-                      </a>
-                    )}
-                    {row.status === 'failed' && (
-                      <span style={{ color: 'var(--chrome-red)' }}>❌ {row.error || 'Failed'}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              <div className="flex items-start gap-2">
+                <img
+                  src={row.preview}
+                  alt={row.file.name}
+                  onClick={() => openLightbox(row.preview)}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    objectFit: 'cover',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium" style={{ color: 'var(--chrome-text-secondary)' }}>
+                    #{index + 1}
+                  </div>
+                  <div className="text-xs truncate" style={{ color: 'var(--chrome-text-primary)' }}>
+                    {row.file.name}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeRow(row.id)}
+                  disabled={isProcessing}
+                  aria-label="Remove row"
+                  className="text-xs px-1.5 py-0.5 rounded"
+                  style={{
+                    border: '1px solid var(--chrome-red)',
+                    background: 'var(--chrome-bg)',
+                    color: 'var(--chrome-red)',
+                    cursor: isProcessing ? 'not-allowed' : 'pointer',
+                    opacity: isProcessing ? 0.6 : 1,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Summary *</label>
+                <input
+                  type="text"
+                  value={row.summary}
+                  onChange={(e) => updateSummary(row.id, e.target.value)}
+                  placeholder="Subtask summary"
+                  disabled={isProcessing}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Description</label>
+                <textarea
+                  value={row.description}
+                  onChange={(e) => updateDescription(row.id, e.target.value)}
+                  placeholder="Description (optional)"
+                  disabled={isProcessing}
+                  rows={3}
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                />
+              </div>
+
+              <div className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
+                {row.status === 'waiting' && '⏸️ Waiting'}
+                {row.status === 'creating' && '⏳ Creating…'}
+                {row.status === 'uploading' && '📤 Uploading…'}
+                {row.status === 'done' && row.issueKey && (
+                  <a
+                    href={`https://${domain}.atlassian.net/browse/${row.issueKey}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--chrome-blue)', textDecoration: 'underline' }}
+                  >
+                    {row.issueKey}
+                  </a>
+                )}
+                {row.status === 'failed' && (
+                  <span style={{ color: 'var(--chrome-red)' }}>❌ {row.error || 'Failed'}</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -348,6 +423,48 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxOpen && lightboxPreview && (
+        <div
+          onClick={closeLightbox}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
+            aria-label="Close lightbox"
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              background: 'none',
+              border: 'none',
+              color: '#fff',
+              fontSize: '18px',
+              cursor: 'pointer',
+              zIndex: 1001,
+            }}
+          >
+            ×
+          </button>
+          <img
+            src={lightboxPreview}
+            alt="Screenshot full"
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
