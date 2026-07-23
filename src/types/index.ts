@@ -56,4 +56,10 @@ export interface CompressionSettings {
   maxWidth: number;
 }
 
+export interface ScreenshotItem {
+  id: string;
+  dataUrl: string;
+  label?: string;
+}
+
 export type PanelMode = 'single' | 'bulk';
