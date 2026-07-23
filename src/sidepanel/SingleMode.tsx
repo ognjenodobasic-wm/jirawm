@@ -5,6 +5,12 @@ import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot } from '../lib/jira';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 
+interface HistoryEntry {
+  key: string;
+  summary: string;
+  url: string;
+}
+
 interface SingleModeProps {
   workflows: Workflow[];
   selectedWorkflowId: string;
@@ -54,6 +60,8 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [globalCompression, setGlobalCompression] = useState<CompressionSettings>({ quality: 0.85, maxWidth: 1920 });
 
   useEffect(() => {
@@ -84,6 +92,24 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setResultKey(null);
     setAttachFailed(false);
     setError(null);
+    setShowSuccess(false);
+  }
+
+  function truncateSummary(text: string, max = 45): string {
+    if (text.length <= max) return text;
+    return `${text.slice(0, max)}…`;
+  }
+
+  function addToHistory(key: string, taskSummary: string, taskDomain: string) {
+    const entry: HistoryEntry = {
+      key,
+      summary: truncateSummary(taskSummary),
+      url: `https://${taskDomain}.atlassian.net/browse/${key}`,
+    };
+    setHistory((prev) => {
+      const next = [entry, ...prev.filter((h) => h.key !== key)];
+      return next.slice(0, 10);
+    });
   }
 
   async function handleCapture() {
@@ -239,9 +265,15 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         setAttachFailed(true);
         setError(`${uploadedCount}/${screenshots.length} screenshots uploaded`);
       } else {
-        setResultKey(issue.key);
+        const createdKey = issue.key;
+        const createdSummary = summary.trim();
+        setResultKey(createdKey);
         setAttachFailed(false);
         setError(null);
+        setShowSuccess(true);
+        addToHistory(createdKey, createdSummary, auth.domain);
+        setTimeout(() => setShowSuccess(false), 3000);
+        resetForm();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -293,10 +325,9 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     <div className="p-3 space-y-3">
       {activeWorkflow && (
         <div className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
-          {activeWorkflow.projectKey} · {activeWorkflow.issueType}
           {activeWorkflow.hasParent && activeWorkflow.parentKey
-            ? ` · under ${activeWorkflow.parentKey}`
-            : ''}
+            ? `${activeWorkflow.projectKey} · under ${activeWorkflow.parentKey} · ${activeWorkflow.issueType}`
+            : `${activeWorkflow.projectKey} · ${activeWorkflow.issueType}`}
         </div>
       )}
 
@@ -530,7 +561,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
           </div>
         )}
 
-        {resultKey && !attachFailed && (
+        {showSuccess && resultKey && !attachFailed && (
           <div
             className="rounded p-2 text-xs"
             style={{ background: 'rgba(30, 142, 62, 0.1)', color: 'var(--chrome-green)' }}
@@ -594,23 +625,45 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
             opacity: isLoading || !!resultKey ? 0.6 : 1,
           }}
         >
-          {isLoading ? 'Submitting…' : 'Create Task'}
+          {isLoading ? 'Creating…' : activeWorkflow ? `Create ${activeWorkflow.issueType}` : 'Create Task'}
         </button>
 
-        {resultKey && !attachFailed && (
-          <button
-            type="button"
-            onClick={resetForm}
-            className="w-full rounded py-1.5 px-3 text-xs font-medium"
-            style={{
-              border: '1px solid var(--chrome-border)',
-              background: 'var(--chrome-bg)',
-              color: 'var(--chrome-text-secondary)',
-              cursor: 'pointer',
-            }}
-          >
-            Create Another
-          </button>
+        {history.length > 0 && (
+          <div className="space-y-1">
+            <span
+              className="text-xs font-semibold"
+              style={{
+                color: 'var(--chrome-text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.8px',
+              }}
+            >
+              Recent
+            </span>
+            <div
+              style={{
+                maxHeight: 160,
+                overflowY: 'auto',
+                border: '1px solid var(--chrome-border)',
+                borderRadius: 4,
+                padding: '4px 6px',
+              }}
+            >
+              {history.map((entry) => (
+                <div key={entry.key} className="text-xs py-0.5">
+                  <a
+                    href={entry.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--chrome-blue)', textDecoration: 'underline', fontWeight: 600 }}
+                  >
+                    {entry.key}
+                  </a>
+                  <span style={{ color: 'var(--chrome-text-secondary)' }}> — {entry.summary}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </form>
     </div>
