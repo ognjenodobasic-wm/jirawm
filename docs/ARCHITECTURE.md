@@ -110,6 +110,42 @@ Jira odbija (400) ako se strukturisano polje pošalje kao goli string. `serializ
 
 ---
 
+## Screenshot model (Faza 4)
+
+Single Task mod podržava **više screenshotova po tasku** (max 10). Model je `ScreenshotItem` iz `src/types/index.ts`:
+
+```ts
+interface ScreenshotItem {
+  id: string;      // crypto.randomUUID()
+  dataUrl: string; // resized/compressed JPEG data URL
+  label?: string;  // rezervisano za buduće labeliranje/anotacije (Faza 5)
+}
+```
+
+### Thumbnail strip u SingleMode
+- Stanje: `screenshots: ScreenshotItem[]` + `selectedId` + `selectedIndex` (za lightbox).
+- Svaki **Capture/Add Screenshot** zove `captureVisibleTab` → `resizeImage()` → dodaje novi `ScreenshotItem` sa `crypto.randomUUID()`. Na 10 stavki dugme se disable-uje (`MAX_SCREENSHOTS = 10`), a labela prelazi iz "Capture Screenshot" u "Add Screenshot".
+- Strip je horizontalni scroll (64×64 thumbnaili). Klik na thumbnail otvara **lightbox**; `×` u uglu uklanja stavku (`handleRemove`).
+- **Drag & drop reorder** unutar stripa: `dragIdRef` pamti izvor, `onDrop` radi `splice` iz→u nad `screenshots` nizom; `dragOverId` daje vizuelni indikator (leva ivica).
+- **Lightbox navigacija**: `←`/`→` dugmad i keyboard (`Escape` zatvara, `ArrowLeft`/`ArrowRight` menjaju) preko `useEffect` koji dodaje/uklanja `keydown` listener dok je lightbox otvoren. Prikazuje brojač `index+1 / N`.
+
+### Sekvencijalni attachment flow
+Posle uspešnog `createIssue`, screenshotovi se kače **jedan po jedan** (nikad paralelno):
+
+```
+createIssue(...) → issue.key
+za svaki item u screenshots:
+   attachScreenshot(issue.key, item.dataUrl, `${issue.key}-${item.id}.jpg`)
+   uspeh → uploadedCount++
+   greška → failedItems.push(item)   (petlja se NE prekida)
+```
+
+**Partial success handling:** ako je `failedItems.length > 0`, issue je već kreiran (ne poništava se) — UI prikazuje `X/N screenshots uploaded`, postavlja `attachFailed=true` i nudi **Retry screenshots** (`retryFailedAttachments`), koji ponovo prolazi kroz sve i re-attach-uje. Filename konvencija: `{issueKey}-{screenshotId}.jpg` (jedinstven po stavci).
+
+**Max 10 screenshotova po tasku** — tvrdo ograničenje u `handleCapture` (guard `screenshots.length >= MAX_SCREENSHOTS`) i na disable-u dugmeta.
+
+---
+
 ## Poznate zamke
 
 1. ~~**`accountId` ključ se čita ali se nikad ne upisuje.**~~ — **Popravljeno.** `Settings.handleSave` sada snima `accountId` i u `auth` objekat i kao top-level `accountId` ključ (`setLocal('accountId', accountId)`). `SidePanel` auth gate čita top-level ključ i radi ispravno.

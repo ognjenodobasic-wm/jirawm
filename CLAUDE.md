@@ -8,14 +8,14 @@ Internal use only. No server, no database, no OAuth.
 - Faza 1 (Single Task): ✅ Kompletna
 - Faza 2 (Bulk mod): ✅ Kompletna
 - Faza 3 (Workflow polish): ✅ Kompletna
-- Faza 4 (Više screenshotova): ⏳ Nije početa
+- Faza 4 (Više screenshotova): ✅ Kompletna
 - Faza 5 (Anotacije): ⏳ Nije početa
 
 ## Faze razvoja
 - [x] Faza 1 — Single Task: capture → create issue → attach screenshot
 - [x] Faza 2 — Bulk mod: drag/drop, sekvencijalni background upload, retry failed
 - [x] Faza 3 — Workflow polish: Jira-driven wizard, edit/delete, export/import, parent search, field serialization
-- [ ] Faza 4 — Više screenshotova po tasku
+- [x] Faza 4 — Više screenshotova po tasku: thumbnail strip (max 10), drag reorder, lightbox navigacija, sekvencijalni multi-attach + partial success/retry
 - [ ] Faza 5 — Anotacije (editor tab, src/editor/)
 
 ## Stack
