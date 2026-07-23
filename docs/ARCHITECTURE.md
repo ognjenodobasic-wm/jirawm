@@ -32,7 +32,7 @@ Dva storage area: `local` (osetljivo + privremeno, nikad se ne sinhronizuje) i `
 | Ključ | Area | Sadržaj | Piše | Čita |
 |-------|------|---------|------|------|
 | `auth` | local | `{ domain, email, apiToken, accountId }` | `Settings.handleSave` | `SingleMode`, `SidePanel`, `WorkflowManager`, `worker` |
-| `accountId` | local | `string` — Jira accountId | ⚠️ **niko** (vidi zamku #1) | `SidePanel` (auth gate) |
+| `accountId` | local | `string` — Jira accountId | `Settings.handleSave` (posle testConnection) | `SidePanel` (auth gate) |
 | `jirawm_workflows` | **sync** | `Workflow[]` | `workflows.saveWorkflow/deleteWorkflow`, `Settings` import | `SidePanel`, `SingleMode`, `worker`, `WorkflowManager` |
 | `jirawm_bulk_progress` | local | `BulkTask[]` — status svakog taska | `BulkMode`, `worker.saveProgress` | `BulkMode` (poll), `worker` |
 | `jirawm_export_snapshot` | local | `ExportSnapshot` — meta poslednjeg exporta | `Settings.handleExport` | `Settings` | 
@@ -112,7 +112,7 @@ Jira odbija (400) ako se strukturisano polje pošalje kao goli string. `serializ
 
 ## Poznate zamke
 
-1. **`accountId` ključ se čita ali se nikad ne upisuje.** `SidePanel` auth gate zahteva i validan `auth` objekat i zaseban top-level `accountId` string (`getLocal('accountId')`), ali `Settings.handleSave` snima accountId **samo** ugnježden u `auth` objekat (`auth.accountId`), nikad kao poseban ključ. Posledica: `isAuthed` može ostati `false` iako je konekcija uspešna, što blokira selektor workflowa i forme. Popravka: ili `Settings` treba da uradi `setLocal('accountId', accountId)`, ili `SidePanel` treba da čita `auth.accountId`.
+1. ~~**`accountId` ključ se čita ali se nikad ne upisuje.**~~ — **Popravljeno.** `Settings.handleSave` sada snima `accountId` i u `auth` objekat i kao top-level `accountId` ključ (`setLocal('accountId', accountId)`). `SidePanel` auth gate čita top-level ključ i radi ispravno.
 2. **Nekonzistentan storage za export snapshot.** `Settings` čita/piše `jirawm_export_snapshot` u `local` (usklađeno sa CLAUDE.md), ali `workflows.ts` (`getExportSnapshot`/`exportWorkflows`) koristi `sync`. Aktivni UI put je `Settings` (local); `workflows.ts` helperi za export/snapshot se trenutno ne koriste iz UI-a.
 3. **select/option defaults kao goli string** — rešeno preko `serializeField`, ali samo za tipove iz tabele gore. Egzotičniji custom tipovi (cascading select, version, component) padaju u `default` granu i idu kao string → mogu vratiti 400.
 4. **Worker restart recovery ne postoji.** Ako MV3 worker bude ugašen usred bulk obrade uprkos `keepAlive` alarmu (npr. browser pod pritiskom memorije), petlja se ne nastavlja automatski. `jirawm_bulk_progress` ostaje "zamrznut" na poslednjem status-u, a UI poll bez timeout-a nastavlja beskonačno. Nema logike koja na restart workera pokupi nedovršene taskove i nastavi.

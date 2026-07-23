@@ -45,14 +45,3 @@ export function setSync<T>(key: string, value: T): Promise<void> {
   return promiseSet<T>(chrome.storage.sync, key, value);
 }
 
-export function removeLocal(key: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.remove(key, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-}

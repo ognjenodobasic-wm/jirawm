@@ -34,12 +34,12 @@
     "128": "icons/icon128.png"
   },
   "commands": {
-    "open-jirawm": {
+    "_execute_action": {
       "suggested_key": {
-        "default": "Ctrl+Shift+J",
-        "mac": "Command+Shift+J"
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
       },
-      "description": "Open JiraWM Side Panel"
+      "description": "Open JiraWM"
     }
   }
 }
