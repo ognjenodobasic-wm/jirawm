@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+
+:root {
+  --chrome-bg: #ffffff;
+  --chrome-surface: #f1f3f4;
+  --chrome-border: #dadce0;
+  --chrome-text-primary: #202124;
+  --chrome-text-secondary: #5f6368;
+  --chrome-blue: #1a73e8;
+  --chrome-blue-hover: #1557b0;
+  --chrome-red: #d93025;
+  --chrome-green: #1e8e3e;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}

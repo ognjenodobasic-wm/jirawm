@@ -1,0 +1,36 @@
+# JiraWM — Cline Rules
+
+## Role
+Cline executes file-level changes, builds, and TypeScript checks.
+Architecture decisions happen in Claude.ai project chat — not here.
+
+## Before every task
+1. Read CLAUDE.md fully
+2. Check current file state before editing — never reconstruct from memory
+3. Run npx tsc --noEmit after changes — report errors before declaring done
+
+## Task scope
+- One concern per task
+- Stop and report if a change would affect more than 3 files unexpectedly
+- Never install new npm packages without explicit instruction
+
+## Build loop
+npm run build → check for errors → report result
+Never run dev server.
+
+## Agents
+- Default: standard Cline for most tasks
+- Complex Jira API parsing / Service Worker lifecycle issues: flag for Kimi handoff
+- Architecture questions: flag for Claude.ai chat
+
+## Commit message format
+feat: [phase] brief description
+fix: brief description
+chore: brief description
+
+## TypeScript
+Strict mode is on. Fix all errors — never use @ts-ignore or any casts without explicit approval.
+
+## chrome.storage pattern
+import { storage } from '../lib/storage';
+Always go through the storage wrapper, never call chrome.storage directly in components.
