@@ -10,7 +10,7 @@ interface AnnotateModeProps {
 
 const TOOLBAR_HEIGHT = 56;
 const COLORS = ['#ff4444', '#ffcc00', '#00cc88', '#4499ff', '#ffffff'];
-type Tool = 'select' | 'arrow' | 'rect' | 'marker' | 'text';
+type Tool = 'select' | 'arrow' | 'rect' | 'rectFill' | 'marker' | 'text';
 
 export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateModeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,7 +22,6 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
   const [activeTool, setActiveTool] = useState<Tool>('select');
   const [activeColor, setActiveColor] = useState('#ff4444');
   const [strokeWidth, setStrokeWidth] = useState<2 | 3 | 4>(2);
-  const [rectFillMode, setRectFillMode] = useState(false);
   const [markerCounter, setMarkerCounter] = useState(1);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -198,6 +197,9 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       return { x: p.x, y: p.y };
     };
 
+    const isRectTool = activeTool === 'rect' || activeTool === 'rectFill';
+    const fillMode = activeTool === 'rectFill';
+
     const handleMouseDown = (opt: fabric.TPointerEventInfo) => {
       if (activeTool === 'select' || activeTool === 'text' || activeTool === 'marker') return;
       const { x, y } = getPoint(opt);
@@ -213,15 +215,17 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
         });
         tempObjectRef.current = line;
         canvas.add(line);
-      } else if (activeTool === 'rect') {
+      } else if (isRectTool) {
         const rect = new fabric.Rect({
           left: x,
           top: y,
           width: 0,
           height: 0,
-          fill: rectFillMode ? activeColor : 'transparent',
+          fill: fillMode ? activeColor : 'transparent',
           stroke: activeColor,
           strokeWidth,
+          originX: 'left',
+          originY: 'top',
           selectable: false,
           evented: false,
         });
@@ -238,7 +242,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       if (activeTool === 'arrow' && tempObjectRef.current instanceof fabric.Line) {
         tempObjectRef.current.set({ x2: x, y2: y });
         canvas.renderAll();
-      } else if (activeTool === 'rect' && tempObjectRef.current instanceof fabric.Rect) {
+      } else if (isRectTool && tempObjectRef.current instanceof fabric.Rect) {
         tempObjectRef.current.set({
           left: Math.min(startX, x),
           top: Math.min(startY, y),
@@ -270,14 +274,16 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
         });
         canvas.add(new fabric.Group([line, arrowhead], { selectable: true, evented: true }));
         saveHistory();
-      } else if (activeTool === 'rect') {
+      } else if (isRectTool) {
         if (tempObjectRef.current) { canvas.remove(tempObjectRef.current); tempObjectRef.current = null; }
         if (Math.hypot(endX - startX, endY - startY) < 5) return;
         canvas.add(new fabric.Rect({
           left: Math.min(startX, endX), top: Math.min(startY, endY),
           width: Math.abs(endX - startX), height: Math.abs(endY - startY),
-          fill: rectFillMode ? activeColor : 'transparent',
-          stroke: activeColor, strokeWidth, selectable: true, evented: true,
+          fill: fillMode ? activeColor : 'transparent',
+          stroke: activeColor, strokeWidth,
+          originX: 'left', originY: 'top',
+          selectable: true, evented: true,
         }));
         saveHistory();
       }
@@ -288,7 +294,9 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
 
       if (activeTool === 'text') {
         const text = new fabric.IText('Tekst', {
-          left: x, top: y, fontSize: 16, fill: activeColor, selectable: true, editable: true,
+          left: x, top: y, fontSize: 16, fill: activeColor,
+          originX: 'left', originY: 'top',
+          selectable: true, editable: true,
         });
         canvas.add(text);
         canvas.setActiveObject(text);
@@ -310,7 +318,6 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
           left: x, top: y, originX: 'center', originY: 'center', selectable: true, evented: true,
         });
         canvas.add(group);
-        setMarkerCounter((prev) => prev + 1);
         saveHistory();
       }
     };
@@ -326,7 +333,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       canvas.off('mouse:up', handleMouseUp);
       canvas.off('mouse:down', handleMouseDownForTextAndMarker);
     };
-  }, [activeTool, activeColor, strokeWidth, rectFillMode, markerCounter, saveHistory]);
+  }, [activeTool, activeColor, strokeWidth, markerCounter, saveHistory]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -335,7 +342,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       if (e.key.toLowerCase() === 'r') { setActiveTool('rect'); return; }
       if (e.key.toLowerCase() === 'm') { setActiveTool('marker'); return; }
       if (e.key.toLowerCase() === 't') { setActiveTool('text'); return; }
-      if (e.key.toLowerCase() === 'f' && activeTool === 'rect') { setRectFillMode((p) => !p); return; }
+      if (e.key.toLowerCase() === 'f') { setActiveTool('rectFill'); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault(); e.shiftKey ? redo() : undo(); return;
       }
@@ -422,7 +429,8 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {toolButton('select', 'Select')}
           {toolButton('arrow', 'Arrow')}
-          {toolButton('rect', 'Rect')}
+          {toolButton('rect', 'Rectangle')}
+          {toolButton('rectFill', 'Fill')}
           {toolButton('marker', 'Marker')}
           {toolButton('text', 'Text')}
         </div>
