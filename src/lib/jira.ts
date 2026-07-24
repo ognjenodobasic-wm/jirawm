@@ -71,8 +71,10 @@ export async function testConnection(): Promise<{ accountId: string; displayName
 }
 
 export async function getProjects(): Promise<Array<{ id: string; key: string; name: string }>> {
-  const data = (await apiFetch('/project')) as Array<{ id: string; key: string; name: string }>;
-  return data.map(({ id, key, name }) => ({ id, key, name }));
+  const data = (await apiFetch('/project?status=live')) as Array<{ id: string; key: string; name: string }>;
+  return data
+    .map(({ id, key, name }) => ({ id, key, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
 
 export async function searchIssues(
