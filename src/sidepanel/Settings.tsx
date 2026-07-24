@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import type { AuthConfig, Workflow, ExportSnapshot, CompressionSettings } from '../types';
+import { useState, useEffect } from 'react';
+import type { AuthConfig, CompressionSettings } from '../types';
 import { getLocal, setLocal } from '../lib/storage';
 import { setAuth, testConnection } from '../lib/jira';
-import { WORKFLOWS_KEY, SNAPSHOT_KEY } from '../lib/workflows';
 
 interface SettingsProps {
   onBack: () => void;
@@ -36,12 +35,8 @@ export default function Settings({ onBack }: SettingsProps) {
   const [showToken, setShowToken] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [testState, setTestState] = useState<TestState>({ status: 'idle' });
-  const [exportImportMessage, setExportImportMessage] = useState<string | null>(null);
-  const [exportImportError, setExportImportError] = useState<string | null>(null);
-  const [snapshot, setSnapshot] = useState<ExportSnapshot | null>(null);
   const [compression, setCompression] = useState<CompressionSettings>({ quality: 0.85, maxWidth: 1920 });
   const [compressionSaved, setCompressionSaved] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getLocal<AuthConfig>('auth').then((saved) => {
@@ -50,7 +45,6 @@ export default function Settings({ onBack }: SettingsProps) {
       setEmail(saved.email);
       setApiToken(saved.apiToken);
     });
-    getLocal<ExportSnapshot>(SNAPSHOT_KEY).then((s) => setSnapshot(s));
     getLocal<CompressionSettings>('jirawm_compression').then((c) => {
       if (c) setCompression(c);
     });
@@ -60,78 +54,6 @@ export default function Settings({ onBack }: SettingsProps) {
     await setLocal('jirawm_compression', compression);
     setCompressionSaved(true);
     setTimeout(() => setCompressionSaved(false), 2000);
-  }
-
-  async function handleExport() {
-    setExportImportMessage(null);
-    setExportImportError(null);
-    try {
-      const workflows = (await getLocal<Workflow[]>(WORKFLOWS_KEY)) ?? [];
-      const json = JSON.stringify(workflows, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'workflows-jirawm.json';
-      a.click();
-      URL.revokeObjectURL(url);
-
-      const snap: ExportSnapshot = {
-        timestamp: new Date().toISOString(),
-        count: workflows.length,
-        names: workflows.map((w) => w.name),
-      };
-      await setLocal(SNAPSHOT_KEY, snap);
-      setSnapshot(snap);
-      setExportImportMessage(`Exported ${workflows.length} workflows`);
-    } catch (err) {
-      setExportImportError(err instanceof Error ? err.message : String(err));
-    }
-  }
-
-  function handleImportClick() {
-    importInputRef.current?.click();
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    setExportImportMessage(null);
-    setExportImportError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-
-    try {
-      const text = await file.text();
-      const imported: unknown = JSON.parse(text);
-      if (!Array.isArray(imported)) {
-        throw new Error('Invalid workflow file: expected a JSON array.');
-      }
-
-      const existing = (await getLocal<Workflow[]>(WORKFLOWS_KEY)) ?? [];
-      const merged = [...existing];
-      let newCount = 0;
-      let updatedCount = 0;
-
-      for (const item of imported) {
-        const w = item as Workflow;
-        if (!w.id || !w.name) {
-          throw new Error('Invalid workflow entry: missing id or name.');
-        }
-        const idx = merged.findIndex((e) => e.id === w.id);
-        if (idx >= 0) {
-          merged[idx] = w;
-          updatedCount++;
-        } else {
-          merged.push(w);
-          newCount++;
-        }
-      }
-
-      await setLocal(WORKFLOWS_KEY, merged);
-      setExportImportMessage(`Imported ${merged.length} workflows (${newCount} new, ${updatedCount} updated)`);
-    } catch (err) {
-      setExportImportError(err instanceof Error ? err.message : String(err));
-    }
   }
 
   async function handleSave() {
@@ -386,66 +308,6 @@ export default function Settings({ onBack }: SettingsProps) {
           </div>
         </div>
 
-        {/* Export / Import */}
-        <div className="flex flex-col gap-4">
-          <span style={sectionTitleStyle}>Workflows</span>
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
-              <button
-                onClick={handleExport}
-                className="flex-1 px-3 py-1.5 text-xs font-medium rounded"
-                style={{
-                  border: '1px solid var(--chrome-border)',
-                  background: 'var(--chrome-bg)',
-                  color: 'var(--chrome-text-primary)',
-                  cursor: 'pointer',
-                }}
-              >
-                Export Workflows
-              </button>
-              <button
-                onClick={handleImportClick}
-                className="flex-1 px-3 py-1.5 text-xs font-medium rounded"
-                style={{
-                  border: '1px solid var(--chrome-border)',
-                  background: 'var(--chrome-bg)',
-                  color: 'var(--chrome-text-primary)',
-                  cursor: 'pointer',
-                }}
-              >
-                Import Workflows
-              </button>
-              <input
-                ref={importInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleImportFile}
-                style={{ display: 'none' }}
-              />
-            </div>
-
-            {exportImportMessage && (
-              <p className="text-xs" style={{ color: 'var(--chrome-green)' }}>
-                {exportImportMessage}
-              </p>
-            )}
-            {exportImportError && (
-              <p className="text-xs" style={{ color: 'var(--chrome-red)' }}>
-                ✗ {exportImportError}
-              </p>
-            )}
-
-            <div className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
-              {snapshot ? (
-                <span>
-                  Last export: {new Date(snapshot.timestamp).toLocaleString()} — {snapshot.count} workflows: {snapshot.names.join(', ')}
-                </span>
-              ) : (
-                <span>No export yet</span>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -99,4 +99,4 @@ export interface AnnotationResult {
   thumbnailIndex: number;
 }
 
-export type PanelMode = 'single' | 'bulk' | 'help';
+export type PanelMode = 'single' | 'bulk' | 'workflows' | 'help';

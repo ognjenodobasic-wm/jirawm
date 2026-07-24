@@ -5,6 +5,7 @@ import SingleMode from './SingleMode';
 import BulkMode from './BulkMode';
 import Settings from './Settings';
 import Help from './Help';
+import WorkflowsTab from './WorkflowsTab';
 import WorkflowManager from './WorkflowManager';
 import type { AuthConfig, Workflow, PanelMode } from '../types';
 import { getLocal } from '../lib/storage';
@@ -13,10 +14,11 @@ import { removeLegacySyncWorkflows } from '../lib/workflows';
 const TABS: { id: PanelMode; label: string }[] = [
   { id: 'single', label: 'Single Task' },
   { id: 'bulk', label: 'Bulk Upload' },
+  { id: 'workflows', label: 'Workflows' },
 ];
 
-function isTabMode(mode: PanelMode): mode is 'single' | 'bulk' {
-  return mode === 'single' || mode === 'bulk';
+function isTabMode(mode: PanelMode): mode is 'single' | 'bulk' | 'workflows' {
+  return mode === 'single' || mode === 'bulk' || mode === 'workflows';
 }
 
 function SidePanel() {
@@ -298,6 +300,14 @@ function SidePanel() {
           <Settings onBack={handleBack} />
         ) : activeTab === 'help' ? (
           <Help />
+        ) : activeTab === 'workflows' ? (
+          <WorkflowsTab
+            workflows={workflows}
+            isAuthed={isAuthed}
+            onNewWorkflow={() => { setShowWorkflowManager(true); setShowSettings(false); setEditingWorkflow(undefined); }}
+            onEditWorkflow={(wf) => { setEditingWorkflow(wf); setShowWorkflowManager(true); setShowSettings(false); }}
+            onWorkflowsChanged={() => loadWorkflows()}
+          />
         ) : activeTab === 'single' ? (
           <SingleMode
             workflows={workflows}
