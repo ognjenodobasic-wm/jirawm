@@ -12,12 +12,12 @@ MV3 ekstenzija se izvršava u tri odvojena JS okruženja. **Nijedno ne deli memo
 |----------|---------|-------|-------------|
 | **Side Panel (UI)** | `src/sidepanel/*` | React UI — forme, tabele, workflow wizard | Živi dok je panel otvoren |
 | **Background Service Worker** | `src/background/worker.ts` | Bulk obrada, notifikacije, otvaranje panela | MV3 ga gasi posle ~30s neaktivnosti |
-| **Annotation Editor Tab** | `src/editor/*` (Faza 5, još nema) | Buduće: crtanje po screenshotu | Zaseban tab |
+| **Annotation Editor Popup** | `src/editor/*` (Faza 5) | Preview i anotacija screenshota | Popup prozor (`type:'popup'`), živi dok je prozor otvoren |
 
 ### Zašto ne dele memoriju
 Svaki kontekst je zaseban V8 izolat. `setAuth()` pozvan u Side Panelu **ne** postavlja `_auth` u workeru — zato i Side Panel i worker svaki za sebe učitavaju `auth` iz `chrome.storage.local` i pozivaju `setAuth()` pre bilo kog Jira poziva (vidi `SingleMode.handleSubmit` i `worker.processBulkTasks`).
 
-### Kako komuniciraju
+### Kako komuniciraju (i editor popup)
 - **Male poruke / signali** → `chrome.runtime.sendMessage`. Primer: Side Panel šalje `{ type: 'START_BULK', tasks, workflowId }` workeru (`BulkMode.startUpload`).
 - **Veliki podaci (base64 screenshotovi)** → NE idu kroz `sendMessage`. Umesto toga pišu se u `chrome.storage.local` kao bafer, a čitalac ih odatle preuzima.
   - Napomena: trenutno `BulkMode` šalje i `tasks` (sa base64) i kroz `sendMessage` i upisuje ih u `jirawm_bulk_progress`. Worker svejedno merge-uje sa storage verzijom, pa je storage izvor istine za progres.
@@ -38,6 +38,9 @@ Dva storage area: `local` (osetljivo + privremeno, nikad se ne sinhronizuje) i `
 | `jirawm_export_snapshot` | local | `ExportSnapshot` — meta poslednjeg exporta | `Settings.handleExport` | `Settings` | 
 | `jirawm_compression` | local | `{ quality, maxWidth }` | `Settings.handleSaveCompression` | `SingleMode`, `Settings` |
 | `jirawm_createmeta_{projectKey}` | local | `IssueTypeMeta[]` — keširan createmeta | `jira.getIssueTypes` | `jira.getIssueTypes` |
+| `pendingEditor` | local | `PendingEditor` — screenshot + mode za editor popup | `SingleMode.openEditor` | `AnnotationEditor` on mount |
+| `annotationResult` | local | `AnnotationResult` — anotovani dataUrl + index | `AnnotateMode` (Done) | `SingleMode` ANNOTATION_DONE listener |
+| `editorWindowBounds` | local | `WindowBounds` — poslednje dimenzije editor popupa | `useWindowBounds` hook | `SingleMode.openEditor` |
 
 **Pravila (iz CLAUDE.md):** token/email/domain uvek `local`, nikad sync. Workflowi uvek `sync`. Nikad `localStorage`.
 
@@ -143,6 +146,62 @@ za svaki item u screenshots:
 **Partial success handling:** ako je `failedItems.length > 0`, issue je već kreiran (ne poništava se) — UI prikazuje `X/N screenshots uploaded`, postavlja `attachFailed=true` i nudi **Retry screenshots** (`retryFailedAttachments`), koji ponovo prolazi kroz sve i re-attach-uje. Filename konvencija: `{issueKey}-{screenshotId}.jpg` (jedinstven po stavci).
 
 **Max 10 screenshotova po tasku** — tvrdo ograničenje u `handleCapture` (guard `screenshots.length >= MAX_SCREENSHOTS`) i na disable-u dugmeta.
+
+---
+
+## Editor popup kontekst (Faza 5)
+
+Annotation editor se otvara kao `chrome.windows.create({ type: 'popup' })` — bez Chrome toolbara, kao čist aplikacijski prozor.
+
+### `chrome.windows.create type:'popup'` pattern
+
+```ts
+// SingleMode.tsx — openEditor()
+chrome.windows.create({
+  type: 'popup',
+  url: chrome.runtime.getURL('editor.html') + '?mode=' + mode + '&index=' + index,
+  width: bounds?.width ?? 1000,
+  height: bounds?.height ?? 700,
+  left: bounds?.left,
+  top: bounds?.top,
+}, (win) => {
+  setEditorWindowId(win?.id ?? null);
+});
+```
+
+### pendingEditor / annotationResult storage protokol
+
+Dva privremena ključa u `chrome.storage.local` služe kao most između Side Panel-a i editor popupa:
+
+| Ključ | Piše | Čita | Briše |
+|-------|------|------|-------|
+| `pendingEditor` | `SingleMode.openEditor` | `AnnotationEditor` on mount | `SingleMode` ANNOTATION_DONE listener |
+| `annotationResult` | `AnnotateMode` (Done) | `SingleMode` ANNOTATION_DONE listener | `SingleMode` ANNOTATION_DONE listener |
+
+Flow: Side Panel upisuje `pendingEditor` → otvara popup → popup čita i prikazuje screenshot → "Done" upisuje `annotationResult` + šalje `ANNOTATION_DONE` message → Side Panel čita result, zamenjuje thumbnail, briše oba ključa.
+
+### editorWindowId guard (jedan popup istovremeno)
+
+`SingleMode` čuva `editorWindowId: number | null` u React state-u:
+- Ako je `editorWindowId !== null`, pokušava `chrome.windows.update(id, { focused: true })` umesto otvaranja novog prozora.
+- Ako update bacit grešku (prozor je zatvoren), resetuje `editorWindowId = null` i otvara novi.
+- Na `ANNOTATION_DONE` message: resetuje `editorWindowId = null`.
+
+### onBoundsChanged debounce pattern
+
+`chrome.windows.onBoundsChanged` se okida pri svakom pixelu pomeranja/resajzovanja prozora — može biti stotine puta u sekundi. Debounce od 500ms sprečava flood I/O operacija:
+
+```ts
+// useWindowBounds.ts
+const listener = (win: chrome.windows.Window) => {
+  if (win.id !== currentWindowId) return;
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    chrome.storage.local.set({ editorWindowBounds: { width, height, left, top } });
+  }, 500);
+};
+chrome.windows.onBoundsChanged.addListener(listener);
+```
 
 ---
 

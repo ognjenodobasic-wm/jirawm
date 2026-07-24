@@ -76,6 +76,27 @@ export interface ScreenshotItem {
   id: string;
   dataUrl: string;
   label?: string;
+  annotated?: boolean;
+}
+
+export type EditorMode = 'preview' | 'annotate';
+
+export interface WindowBounds {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+}
+
+export interface PendingEditor {
+  dataUrl: string;
+  thumbnailIndex: number;
+  mode: EditorMode;
+}
+
+export interface AnnotationResult {
+  dataUrl: string;
+  thumbnailIndex: number;
 }
 
 export type PanelMode = 'single' | 'bulk' | 'help';

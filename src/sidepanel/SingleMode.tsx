@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { AuthConfig, Workflow, CompressionSettings, ScreenshotItem } from '../types';
-import { getLocal } from '../lib/storage';
+import type { AuthConfig, Workflow, CompressionSettings, ScreenshotItem, EditorMode, WindowBounds, AnnotationResult } from '../types';
+import { getLocal, setLocal } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/jira';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
@@ -44,6 +44,10 @@ function resizeImage(dataUrl: string, maxWidth: number, quality: number): Promis
 
 const MAX_SCREENSHOTS = 10;
 
+async function readEditorBounds(): Promise<WindowBounds | null> {
+  return getLocal<WindowBounds>('editorWindowBounds');
+}
+
 export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, onOpenSettings }: SingleModeProps) {
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
 
@@ -65,11 +69,31 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [globalCompression, setGlobalCompression] = useState<CompressionSettings>({ quality: 0.85, maxWidth: 1920 });
+  const [editorWindowId, setEditorWindowId] = useState<number | null>(null);
 
   useEffect(() => {
     getLocal<CompressionSettings>('jirawm_compression').then((c) => {
       if (c) setGlobalCompression(c);
     });
+  }, []);
+
+  useEffect(() => {
+    const listener = (msg: Record<string, unknown>): void => {
+      if (msg.type === 'ANNOTATION_DONE') {
+        chrome.storage.local.get('annotationResult', (result) => {
+          if (result['annotationResult']) {
+            const { dataUrl, thumbnailIndex } = result['annotationResult'] as AnnotationResult;
+            setScreenshots((prev) =>
+              prev.map((s, i) => (i === thumbnailIndex ? { ...s, dataUrl, annotated: true } : s)),
+            );
+            chrome.storage.local.remove(['pendingEditor', 'annotationResult']);
+          }
+          setEditorWindowId(null);
+        });
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+    return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
 
   useEffect(() => {
@@ -97,6 +121,41 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setAttachFailed(false);
     setError(null);
     setShowSuccess(false);
+  }
+
+  async function openEditor(mode: EditorMode, index: number) {
+    if (editorWindowId !== null) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          chrome.windows.update(editorWindowId, { focused: true }, () => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else resolve();
+          });
+        });
+        return;
+      } catch {
+        setEditorWindowId(null);
+      }
+    }
+    const screenshot = screenshots[index];
+    if (!screenshot) return;
+    await setLocal('pendingEditor', {
+      dataUrl: screenshot.dataUrl,
+      thumbnailIndex: index,
+      mode,
+    });
+    const bounds = await readEditorBounds();
+    const createData: chrome.windows.CreateData = {
+      type: 'popup',
+      url: chrome.runtime.getURL('editor.html') + '?mode=' + mode + '&index=' + index,
+      width: bounds?.width ?? 1000,
+      height: bounds?.height ?? 700,
+    };
+    if (bounds?.left != null) createData.left = bounds.left;
+    if (bounds?.top != null) createData.top = bounds.top;
+    chrome.windows.create(createData, (win) => {
+      setEditorWindowId(win?.id ?? null);
+    });
   }
 
   function truncateSummary(text: string, max = 45): string {
@@ -369,67 +428,126 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
                 paddingBottom: '4px',
               }}
             >
-              {screenshots.map((item) => (
+              {screenshots.map((item, index) => (
                 <div
                   key={item.id}
-                  draggable
-                  onClick={() => handleSelect(item.id)}
-                  onDragStart={() => { dragIdRef.current = item.id; }}
-                  onDragOver={(e) => { e.preventDefault(); setDragOverId(item.id); }}
-                  onDrop={() => {
-                    if (!dragIdRef.current || dragIdRef.current === item.id) return;
-                    setScreenshots((prev) => {
-                      const from = prev.findIndex((s) => s.id === dragIdRef.current);
-                      const to = prev.findIndex((s) => s.id === item.id);
-                      if (from < 0 || to < 0) return prev;
-                      const next = [...prev];
-                      next.splice(to, 0, ...next.splice(from, 1));
-                      return next;
-                    });
-                    setDragOverId(null);
-                  }}
-                  onDragEnd={() => { dragIdRef.current = null; setDragOverId(null); }}
-                  style={{
-                    position: 'relative',
-                    flexShrink: 0,
-                    width: 64,
-                    height: 64,
-                    borderRadius: 4,
-                    border: `2px solid ${selectedId === item.id ? 'var(--chrome-blue)' : 'transparent'}`,
-                    borderLeft: dragOverId === item.id ? '3px solid var(--chrome-blue)' : undefined,
-                    cursor: dragIdRef.current ? 'grabbing' : 'grab',
-                    overflow: 'hidden',
-                  }}
+                  style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}
                 >
-                  <img
-                    src={item.dataUrl}
-                    alt="Screenshot thumbnail"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2, pointerEvents: 'none' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
-                    aria-label="Remove screenshot"
+                  <div
+                    draggable
+                    onClick={() => handleSelect(item.id)}
+                    onDragStart={() => { dragIdRef.current = item.id; }}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverId(item.id); }}
+                    onDrop={() => {
+                      if (!dragIdRef.current || dragIdRef.current === item.id) return;
+                      setScreenshots((prev) => {
+                        const from = prev.findIndex((s) => s.id === dragIdRef.current);
+                        const to = prev.findIndex((s) => s.id === item.id);
+                        if (from < 0 || to < 0) return prev;
+                        const next = [...prev];
+                        next.splice(to, 0, ...next.splice(from, 1));
+                        return next;
+                      });
+                      setDragOverId(null);
+                    }}
+                    onDragEnd={() => { dragIdRef.current = null; setDragOverId(null); }}
                     style={{
-                      position: 'absolute',
-                      top: 0,
-                      right: 0,
-                      width: 16,
-                      height: 16,
-                      background: 'var(--chrome-red)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '0 0 0 4px',
-                      fontSize: '10px',
-                      lineHeight: 1,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      position: 'relative',
+                      width: 64,
+                      height: 64,
+                      borderRadius: 4,
+                      border: `2px solid ${selectedId === item.id ? 'var(--chrome-blue)' : 'transparent'}`,
+                      borderLeft: dragOverId === item.id ? '3px solid var(--chrome-blue)' : undefined,
+                      cursor: dragIdRef.current ? 'grabbing' : 'grab',
+                      overflow: 'hidden',
                     }}
                   >
-                    ×
-                  </button>
+                    <img
+                      src={item.dataUrl}
+                      alt="Screenshot thumbnail"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2, pointerEvents: 'none' }}
+                    />
+                    {item.annotated && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: 16,
+                          height: 16,
+                          background: 'var(--chrome-blue)',
+                          color: '#fff',
+                          fontSize: 9,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '0 0 4px 0',
+                        }}
+                      >
+                        ✎
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
+                      aria-label="Remove screenshot"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        width: 16,
+                        height: 16,
+                        background: 'var(--chrome-red)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '0 0 0 4px',
+                        fontSize: '10px',
+                        lineHeight: 1,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void openEditor('preview', index); }}
+                      title="Preview"
+                      style={{
+                        fontSize: 9,
+                        padding: '1px 4px',
+                        background: 'var(--chrome-surface)',
+                        border: '1px solid var(--chrome-border)',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        color: 'var(--chrome-text-secondary)',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      👁
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void openEditor('annotate', index); }}
+                      title="Annotate"
+                      style={{
+                        fontSize: 9,
+                        padding: '1px 4px',
+                        background: 'var(--chrome-surface)',
+                        border: '1px solid var(--chrome-border)',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        color: 'var(--chrome-text-secondary)',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      ✎
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
