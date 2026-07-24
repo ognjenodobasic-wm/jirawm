@@ -53,7 +53,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     historyCursorRef.current--;
     const snapshot = historyRef.current[historyCursorRef.current];
     if (snapshot) {
-      canvas.loadFromJSON(JSON.parse(snapshot), () => {
+      canvas.loadFromJSON(JSON.parse(snapshot)).then(() => {
         canvas.renderAll();
         setCanUndo(historyCursorRef.current > 0);
         setCanRedo(historyCursorRef.current < historyRef.current.length - 1);
@@ -67,7 +67,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     historyCursorRef.current++;
     const snapshot = historyRef.current[historyCursorRef.current];
     if (snapshot) {
-      canvas.loadFromJSON(JSON.parse(snapshot), () => {
+      canvas.loadFromJSON(JSON.parse(snapshot)).then(() => {
         canvas.renderAll();
         setCanUndo(historyCursorRef.current > 0);
         setCanRedo(historyCursorRef.current < historyRef.current.length - 1);
@@ -137,11 +137,23 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
         fabricCanvas.backgroundImage = fabricImg;
         fabricCanvas.requestRenderAll();
 
-        const initial = JSON.stringify(fabricCanvas.toJSON());
-        historyRef.current = [initial];
-        historyCursorRef.current = 0;
-        setCanUndo(false);
-        setCanRedo(false);
+        requestAnimationFrame(() => {
+          const containerW = containerElFromRef.clientWidth;
+          const containerH = containerElFromRef.clientHeight;
+          if (containerW === 0 || containerH === 0) return;
+          const scaleToFit = Math.min(containerW / naturalW, containerH / naturalH, 1);
+          fabricCanvas.setZoom(scaleToFit);
+          fabricCanvas.setDimensions({
+            width: naturalW * scaleToFit,
+            height: naturalH * scaleToFit,
+          });
+
+          const initial = JSON.stringify(fabricCanvas.toJSON());
+          historyRef.current = [initial];
+          historyCursorRef.current = 0;
+          setCanUndo(false);
+          setCanRedo(false);
+        });
       });
 
       const handleObjectModified = () => saveHistory();

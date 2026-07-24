@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AuthConfig, Workflow, CompressionSettings, ScreenshotItem, EditorMode, WindowBounds, AnnotationResult } from '../types';
 import { getLocal, setLocal } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
@@ -62,8 +62,6 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   const [error, setError] = useState<string | null>(null);
   const [resultKey, setResultKey] = useState<string | null>(null);
   const [attachFailed, setAttachFailed] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -118,7 +116,6 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setDescription(wf?.requiredFieldDefaults.description ?? '');
     setScreenshots([]);
     setSelectedId(null);
-    setSelectedIndex(null);
     setResultKey(null);
     setAttachFailed(false);
     setError(null);
@@ -130,7 +127,6 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setDescription(activeWorkflow?.requiredFieldDefaults.description ?? '');
     setScreenshots([]);
     setSelectedId(null);
-    setSelectedIndex(null);
     setResultKey(null);
     setAttachFailed(false);
     setError(null);
@@ -217,43 +213,6 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setScreenshots((prev) => prev.filter((s) => s.id !== id));
     if (selectedId === id) setSelectedId(null);
   }
-
-  function handleSelect(id: string) {
-    setSelectedId(id);
-    const index = screenshots.findIndex((s) => s.id === id);
-    setSelectedIndex(index >= 0 ? index : null);
-    setLightboxOpen(true);
-  }
-
-  const closeLightbox = useCallback(() => {
-    setLightboxOpen(false);
-    setSelectedIndex(null);
-  }, []);
-
-  const goPrevious = useCallback(() => {
-    setSelectedIndex((prev) => {
-      if (prev == null || prev <= 0) return prev;
-      return prev - 1;
-    });
-  }, []);
-
-  const goNext = useCallback(() => {
-    setSelectedIndex((prev) => {
-      if (prev == null || prev >= screenshots.length - 1) return prev;
-      return prev + 1;
-    });
-  }, [screenshots.length]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowLeft') goPrevious();
-      if (e.key === 'ArrowRight') goNext();
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxOpen, closeLightbox, goPrevious, goNext]);
 
   async function retryFailedAttachments() {
     if (!resultKey || screenshots.length === 0) return;
@@ -404,8 +363,6 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     );
   }
 
-  const selectedItem = selectedIndex != null ? screenshots[selectedIndex] ?? null : null;
-
   return (
     <div className="p-3 space-y-3">
       {activeWorkflow && (
@@ -449,7 +406,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
                 >
                   <div
                     draggable
-                    onClick={() => handleSelect(item.id)}
+                    onClick={() => { void openEditor('preview', index); }}
                     onDragStart={() => { dragIdRef.current = item.id; }}
                     onDragOver={(e) => { e.preventDefault(); setDragOverId(item.id); }}
                     onDrop={() => {
@@ -524,42 +481,24 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
                       ×
                     </button>
                   </div>
-                  <div style={{ display: 'flex', gap: 2 }}>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); void openEditor('preview', index); }}
-                      title="Preview"
-                      style={{
-                        fontSize: 9,
-                        padding: '1px 4px',
-                        background: 'var(--chrome-surface)',
-                        border: '1px solid var(--chrome-border)',
-                        borderRadius: 2,
-                        cursor: 'pointer',
-                        color: 'var(--chrome-text-secondary)',
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      👁
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); void openEditor('annotate', index); }}
-                      title="Annotate"
-                      style={{
-                        fontSize: 9,
-                        padding: '1px 4px',
-                        background: 'var(--chrome-surface)',
-                        border: '1px solid var(--chrome-border)',
-                        borderRadius: 2,
-                        cursor: 'pointer',
-                        color: 'var(--chrome-text-secondary)',
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      ✎
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); void openEditor('annotate', index); }}
+                    style={{
+                      fontSize: 9,
+                      padding: '2px 8px',
+                      background: 'var(--chrome-surface)',
+                      border: '1px solid var(--chrome-border)',
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      color: 'var(--chrome-text-secondary)',
+                      lineHeight: 1.4,
+                      width: '100%',
+                      textAlign: 'center',
+                    }}
+                  >
+                    Edit
+                  </button>
                 </div>
               ))}
             </div>
@@ -569,104 +508,6 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
           </div>
         )}
 
-        {lightboxOpen && selectedItem && selectedIndex != null && (
-          <div
-            onClick={closeLightbox}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 1000,
-              background: 'rgba(0,0,0,0.8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-          >
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-              aria-label="Close lightbox"
-              style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                background: 'none',
-                border: 'none',
-                color: '#fff',
-                fontSize: '18px',
-                cursor: 'pointer',
-                zIndex: 1001,
-              }}
-            >
-              ×
-            </button>
-            {screenshots.length > 1 && selectedIndex > 0 && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); goPrevious(); }}
-                aria-label="Previous screenshot"
-                style={{
-                  position: 'absolute',
-                  left: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'rgba(255,255,255,0.15)',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  padding: '8px 12px',
-                  borderRadius: 4,
-                  zIndex: 1001,
-                }}
-              >
-                ←
-              </button>
-            )}
-            {screenshots.length > 1 && selectedIndex < screenshots.length - 1 && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); goNext(); }}
-                aria-label="Next screenshot"
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'rgba(255,255,255,0.15)',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  padding: '8px 12px',
-                  borderRadius: 4,
-                  zIndex: 1001,
-                }}
-              >
-                →
-              </button>
-            )}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={selectedItem.dataUrl}
-                alt="Screenshot full"
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-              />
-              <p style={{ color: '#fff', fontSize: '12px' }}>
-                {selectedIndex + 1} / {screenshots.length}
-              </p>
-            </div>
-          </div>
-        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-2">
