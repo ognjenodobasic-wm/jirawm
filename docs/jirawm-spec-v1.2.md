@@ -58,6 +58,44 @@ Model podataka za screenshotove: vidi §9.
 
 Kreiranje više issue-a odjednom iz skupa fajlova. Obrada je **sekvencijalna** u background workeru, sa progresom preko `chrome.storage.local` (`jirawm_bulk_progress`) i `keepAlive` alarmom. Retry samo neuspelih. Detalji flow-a: [`ARCHITECTURE.md`](ARCHITECTURE.md) → Bulk mod.
 
+### 4.3 Help tab
+
+Statičan informativni panel unutar Side Panel-a sa sidebar navigacijom unutar taba. Pomaže korisnicima da razumeju ceo workflow bez napuštanja aplikacije.
+
+#### Sekcije (redosled)
+
+| Sekcija | Sadržaj |
+|---|---|
+| Intro | Šta je JiraWM, one-liner objašnjenje, šta se može raditi, šta je workflow |
+| Quick setup | 3 koraka: API token → Settings → Test konekcije |
+| Single task | Kako kreirati task: Screenshot → Workflow → Summary → Create |
+| Bulk upload | Drag & drop, per-row summary, Start Upload, retry failed |
+| Screenshot | Capture, thumbnail strip, preview, annotate (coming soon badge) |
+| Feedback | Link ka GitHub Issues + poziv za saradnju |
+| Changelog | Poslednji nav item — verzije kao kartice sa Major badge oznakom |
+
+#### Changelog u Help panelu
+
+- Hardkodovan u komponentu (ne fetchuje se iz fajla)
+- Prikazuje verzije u opadajućem redosledu (najnovija prva)
+- Svaka verzija = kartica sa: verzijom, datumom, Major/Minor/Patch badge, listom promena
+- Izvor istine: CHANGELOG.md u root-u projekta
+- Changelog kartica u Help-u se ažurira ručno uz svaki version bump
+
+#### Sub-komponente
+
+`ActionList`, `CodeBlock`, `Card`, `Step`, `Badge` — reusable UI elementi unutar Help komponente.
+
+#### Routing i pozicija
+
+`'help'` je vrednost u `PanelMode` union tipu (`src/types/index.ts`).
+
+Tab bar redosled: [ Single Task ] [ Bulk Upload ] [ Workflows ] [ Help ] [ ⚙️ ]
+
+PanelMode union: `'single' | 'bulk' | 'workflows' | 'help'`
+
+Help je četvrti tab. Gear ikonica (⚙️) ostaje bez labele desno od tabova.
+
 ---
 
 ## 5. Workflow sistem
@@ -112,6 +150,7 @@ Detaljno u [`ARCHITECTURE.md`](ARCHITECTURE.md) → Poznate zamke. Sažetak: egz
 ## 13. Faze razvoja
 
 - [x] **Faza 1 — Single Task**: capture → create issue → attach screenshot
+  - [x] Help tab — 6 sekcija + Changelog nav item
 - [x] **Faza 2 — Bulk mod**: drag/drop, sekvencijalni background upload, retry failed
 - [x] **Faza 3 — Workflow polish**: Jira-driven wizard, edit/delete, export/import, parent search, field serialization
 - [x] **Faza 4 — Više screenshotova po tasku**
