@@ -351,7 +351,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
   }
 
   return (
-    <div className="flex flex-col gap-4 p-3">
+    <div className="flex flex-col gap-4 p-3" style={{ paddingBottom: '24px' }}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold">{isEditMode ? 'Edit Workflow' : 'New Workflow'}</span>
@@ -607,55 +607,54 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
       )}
 
       {/* Final — Name + Save */}
-      {selectedIssueType && (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-1">
-            <label style={labelStyle}>Workflow name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="QA Bug Report"
-              style={inputStyle}
-            />
-          </div>
+      <div className="flex flex-col gap-2" style={{ marginTop: '4px' }}>
+        <div className="flex flex-col gap-1">
+          <label style={labelStyle}>Workflow name *</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="QA Bug Report"
+            style={inputStyle}
+          />
+        </div>
 
-          {saveError && (
-            <p className="text-xs" style={{ color: 'var(--chrome-red)' }}>
-              ✗ {saveError}
-            </p>
-          )}
+        {saveError && (
+          <p className="text-xs" style={{ color: 'var(--chrome-red)' }}>
+            ✗ {saveError}
+          </p>
+        )}
 
+        <button
+          onClick={handleSave}
+          disabled={!canSave}
+          className="py-1.5 text-xs font-medium rounded"
+          style={{
+            background: 'var(--chrome-blue)',
+            color: '#fff',
+            border: 'none',
+            cursor: canSave ? 'pointer' : 'not-allowed',
+            opacity: canSave ? 1 : 0.5,
+          }}
+        >
+          Save Workflow
+        </button>
+
+        {isEditMode && (
           <button
-            onClick={handleSave}
-            disabled={!canSave}
-            className="py-1.5 text-xs font-medium rounded"
+            onClick={handleDelete}
+            className="w-full py-1.5 text-xs font-medium rounded"
             style={{
-              background: canSave ? 'var(--chrome-blue)' : 'var(--chrome-surface)',
-              color: canSave ? '#fff' : 'var(--chrome-text-secondary)',
-              border: 'none',
-              cursor: canSave ? 'pointer' : 'not-allowed',
+              background: confirmDelete ? 'var(--chrome-red)' : 'var(--chrome-bg)',
+              color: confirmDelete ? '#fff' : 'var(--chrome-red)',
+              border: '1px solid var(--chrome-red)',
+              cursor: 'pointer',
             }}
           >
-            Save Workflow
+            {confirmDelete ? 'Are you sure? Click again to delete' : 'Delete Workflow'}
           </button>
-
-          {isEditMode && (
-            <button
-              onClick={handleDelete}
-              className="w-full py-1.5 text-xs font-medium rounded"
-              style={{
-                background: confirmDelete ? 'var(--chrome-red)' : 'var(--chrome-bg)',
-                color: confirmDelete ? '#fff' : 'var(--chrome-red)',
-                border: '1px solid var(--chrome-red)',
-                cursor: 'pointer',
-              }}
-            >
-              {confirmDelete ? 'Are you sure? Click again to delete' : 'Delete Workflow'}
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
