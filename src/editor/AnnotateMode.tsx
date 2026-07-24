@@ -18,6 +18,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasInstanceRef = useRef<fabric.Canvas | null>(null);
+  const naturalSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const [activeTool, setActiveTool] = useState<Tool>('select');
   const [activeColor, setActiveColor] = useState('#ff4444');
@@ -106,78 +107,81 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
 
-    const canvasEl = canvasRef.current;
-    const containerEl = containerRef.current;
-    const canvas = new fabric.Canvas(canvasEl, {
-      selection: true,
-      preserveObjectStacking: true,
-    });
-    canvasInstanceRef.current = canvas;
+    const canvasElFromRef = canvasRef.current;
+    const containerElFromRef = containerRef.current;
 
-    const img = new Image();
-    img.onload = () => {
-      const naturalW = img.naturalWidth;
-      const naturalH = img.naturalHeight;
+    function initCanvas(naturalW: number, naturalH: number, imageDataUrl: string) {
+      naturalSizeRef.current = { w: naturalW, h: naturalH };
 
-      // Initialize canvas at full image resolution
-      canvas.setDimensions({ width: naturalW, height: naturalH });
+      const fabricCanvas = new fabric.Canvas(canvasElFromRef, {
+        width: naturalW,
+        height: naturalH,
+        selection: true,
+        preserveObjectStacking: true,
+      });
+      canvasInstanceRef.current = fabricCanvas;
 
       // Set background image 1:1
-      fabric.FabricImage.fromURL(dataUrl).then((fabricImg) => {
-        canvas.backgroundImage = fabricImg;
-        canvas.requestRenderAll();
+      fabric.FabricImage.fromURL(imageDataUrl).then((fabricImg) => {
+        fabricCanvas.backgroundImage = fabricImg;
+        fabricCanvas.requestRenderAll();
       });
 
       // Fit to container via viewport transform (affects both visual and hit-test)
-      const containerW = containerEl.clientWidth;
-      const containerH = containerEl.clientHeight;
+      const containerW = containerElFromRef.clientWidth;
+      const containerH = containerElFromRef.clientHeight;
       const scaleToFit = Math.min(containerW / naturalW, containerH / naturalH, 1);
 
-      canvas.setZoom(scaleToFit);
-      canvas.setDimensions({
+      fabricCanvas.setZoom(scaleToFit);
+      fabricCanvas.setDimensions({
         width: naturalW * scaleToFit,
         height: naturalH * scaleToFit,
       });
 
       // Initial history snapshot
-      const initial = JSON.stringify(canvas.toJSON());
+      const initial = JSON.stringify(fabricCanvas.toJSON());
       historyRef.current = [initial];
       historyCursorRef.current = 0;
       setCanUndo(false);
       setCanRedo(false);
+
+      const handleObjectModified = () => saveHistory();
+      fabricCanvas.on('object:modified', handleObjectModified);
+      fabricCanvas.on('object:added', () => {
+        resetMarkerCounter();
+      });
+      fabricCanvas.on('object:removed', () => {
+        resetMarkerCounter();
+      });
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      initCanvas(img.naturalWidth, img.naturalHeight, dataUrl);
     };
     img.src = dataUrl;
 
     const handleResize = () => {
-      if (!containerEl || !canvas) return;
-      const naturalW = canvas.getWidth() / canvas.getZoom();
-      const naturalH = canvas.getHeight() / canvas.getZoom();
+      const c = canvasInstanceRef.current;
+      if (!containerElFromRef || !c) return;
+      const { w: naturalW, h: naturalH } = naturalSizeRef.current;
+      if (naturalW === 0 || naturalH === 0) return;
       const newScale = Math.min(
-        containerEl.clientWidth / naturalW,
-        containerEl.clientHeight / naturalH,
+        containerElFromRef.clientWidth / naturalW,
+        containerElFromRef.clientHeight / naturalH,
         1
       );
-      canvas.setZoom(newScale);
-      canvas.setDimensions({
+      c.setZoom(newScale);
+      c.setDimensions({
         width: naturalW * newScale,
         height: naturalH * newScale,
       });
     };
     window.addEventListener('resize', handleResize);
 
-    const handleObjectModified = () => saveHistory();
-    canvas.on('object:modified', handleObjectModified);
-    canvas.on('object:added', () => {
-      resetMarkerCounter();
-    });
-    canvas.on('object:removed', () => {
-      resetMarkerCounter();
-    });
-
     return () => {
       window.removeEventListener('resize', handleResize);
-      canvas.off('object:modified', handleObjectModified);
-      canvas.dispose();
+      canvasInstanceRef.current?.dispose();
       canvasInstanceRef.current = null;
     };
   }, [dataUrl, saveHistory, resetMarkerCounter]);
@@ -458,6 +462,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     if (!canvas) return;
     setIsDone(true);
     requestAnimationFrame(() => {
+      canvas.renderAll();
       const zoom = canvas.getZoom();
       const result = canvas.toDataURL({ format: 'jpeg', quality: 0.9, multiplier: 1 / zoom });
       onDone(result);
