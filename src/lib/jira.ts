@@ -82,41 +82,64 @@ export async function searchIssues(
   projectId: string,
   projectKey: string,
 ): Promise<Array<{ key: string; summary: string }>> {
-  const searchQuery = query.toLowerCase();
-  const pickerData = (await apiFetch(
-    `/issue/picker?query=${encodeURIComponent(searchQuery)}&currentProjectId=${encodeURIComponent(projectId)}&showSubTasks=false`,
-  )) as {
-    sections: Array<{
-      issues?: Array<{ key: string; summaryText?: string; summary?: string }>;
-    }>;
-  };
-
+  const trimmed = query.trim();
   const results: Array<{ key: string; summary: string }> = [];
-  for (const section of pickerData.sections ?? []) {
-    for (const issue of section.issues ?? []) {
-      results.push({
-        key: issue.key,
-        summary: issue.summaryText ?? issue.summary ?? '',
-      });
+  const seen = new Set<string>();
+
+  function addResult(key: string, summary: string) {
+    if (!seen.has(key)) {
+      seen.add(key);
+      results.push({ key, summary });
     }
   }
 
-  if (query && results.length < 3) {
-    const jqlData = (await apiFetch('/search/jql', {
-      method: 'POST',
-      body: JSON.stringify({
-        jql: `project = "${projectKey}" AND summary ~ "${query}" AND statusCategory != Done ORDER BY created DESC`,
-        maxResults: 20,
-        fields: ['summary', 'key'],
-      }),
-    })) as { issues: Array<{ key: string; fields: { summary: string } }> };
+  // 1. Direct key lookup if query matches issue key pattern
+  if (/^[A-Za-z]+-\d+$/.test(trimmed)) {
+    try {
+      const issue = (await apiFetch(
+        `/issue/${trimmed.toUpperCase()}?fields=summary`,
+      )) as { key: string; fields: { summary: string } };
+      addResult(issue.key, issue.fields.summary);
+    } catch (err) {
+      console.warn('Direct key lookup failed:', err);
+    }
+  }
 
-    const seen = new Set(results.map((r) => r.key));
-    for (const issue of jqlData.issues ?? []) {
-      if (!seen.has(issue.key)) {
-        results.push({ key: issue.key, summary: issue.fields.summary });
-        seen.add(issue.key);
+  // 2. Always call /issue/picker
+  try {
+    const pickerData = (await apiFetch(
+      `/issue/picker?query=${encodeURIComponent(trimmed)}&currentProjectId=${encodeURIComponent(projectId)}&showSubTasks=false`,
+    )) as {
+      sections: Array<{
+        issues?: Array<{ key: string; summaryText?: string; summary?: string }>;
+      }>;
+    };
+    for (const section of pickerData.sections ?? []) {
+      for (const issue of section.issues ?? []) {
+        addResult(issue.key, issue.summaryText ?? issue.summary ?? '');
       }
+    }
+  } catch (err) {
+    console.warn('Picker search failed:', err);
+  }
+
+  // 3. Always call JQL search (empty query skipped)
+  if (trimmed) {
+    try {
+      const escaped = trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const jqlData = (await apiFetch('/search/jql', {
+        method: 'POST',
+        body: JSON.stringify({
+          jql: `project = "${projectKey}" AND summary ~ "${escaped}*" ORDER BY updated DESC`,
+          maxResults: 50,
+          fields: ['summary'],
+        }),
+      })) as { issues: Array<{ key: string; fields: { summary: string } }> };
+      for (const issue of jqlData.issues ?? []) {
+        addResult(issue.key, issue.fields.summary);
+      }
+    } catch (err) {
+      console.warn('JQL search failed:', err);
     }
   }
 

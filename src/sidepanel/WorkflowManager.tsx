@@ -463,10 +463,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
                         overflowY: 'auto',
                       }}
                     >
-                      {parentSearchState.issues.filter((item) => {
-                        const q = parentQuery.toLowerCase();
-                        return item.key.toLowerCase().includes(q) || item.summary.toLowerCase().includes(q);
-                      }).length === 0 ? (
+                      {parentSearchState.issues.length === 0 ? (
                         <div
                           className="px-2 py-1.5 text-xs"
                           style={{ color: 'var(--chrome-text-secondary)' }}
@@ -474,28 +471,23 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
                           No issues found
                         </div>
                       ) : (
-                        parentSearchState.issues
-                          .filter((item) => {
-                            const q = parentQuery.toLowerCase();
-                            return item.key.toLowerCase().includes(q) || item.summary.toLowerCase().includes(q);
-                          })
-                          .map((issue) => (
-                            <button
-                              key={issue.key}
-                              type="button"
-                              onClick={() => selectParent(issue.key, issue.summary)}
-                              className="text-left px-2 py-1.5 text-xs"
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                borderBottom: '1px solid var(--chrome-border)',
-                                cursor: 'pointer',
-                                color: 'var(--chrome-text-primary)',
-                              }}
-                            >
-                              {issue.key} — {issue.summary}
-                            </button>
-                          ))
+                        parentSearchState.issues.map((issue) => (
+                          <button
+                            key={issue.key}
+                            type="button"
+                            onClick={() => selectParent(issue.key, issue.summary)}
+                            className="text-left px-2 py-1.5 text-xs"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              borderBottom: '1px solid var(--chrome-border)',
+                              cursor: 'pointer',
+                              color: 'var(--chrome-text-primary)',
+                            }}
+                          >
+                            {issue.key} — {issue.summary}
+                          </button>
+                        ))
                       )}
                     </div>
                   )}
