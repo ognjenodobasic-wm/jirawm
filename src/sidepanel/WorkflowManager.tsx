@@ -506,20 +506,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
         </div>
       )}
 
-      {/* Step 3 — Default assignee */}
-      {projectKey && (
-        <div className="flex flex-col gap-1">
-          <label style={labelStyle}>Default assignee</label>
-          <AssigneeSelect
-            projectKey={projectKey}
-            value={defaultAssignee}
-            onChange={setDefaultAssignee}
-            liveUsers={assignableUsers}
-          />
-        </div>
-      )}
-
-      {/* Step 4 — Issue type */}
+      {/* Step 3 — Issue type */}
       {projectKey && (
         <div className="flex flex-col gap-1">
           <label style={labelStyle}>Issue type *</label>
@@ -547,6 +534,19 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
               ))}
             </select>
           )}
+        </div>
+      )}
+
+      {/* Step 4 — Default assignee */}
+      {projectKey && (
+        <div className="flex flex-col gap-1">
+          <label style={labelStyle}>Default assignee</label>
+          <AssigneeSelect
+            projectKey={projectKey}
+            value={defaultAssignee}
+            onChange={setDefaultAssignee}
+            liveUsers={assignableUsers}
+          />
         </div>
       )}
 
