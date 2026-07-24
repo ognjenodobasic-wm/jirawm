@@ -30,6 +30,7 @@ function Badge({ children }: { children: React.ReactNode }) {
         fontWeight: 500,
         textTransform: 'uppercase',
         letterSpacing: '0.3px',
+        marginLeft: '6px',
       }}
     >
       {children}
@@ -110,6 +111,21 @@ function Text({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SmallText({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      style={{
+        fontSize: '12px',
+        lineHeight: 1.6,
+        color: 'var(--chrome-text-secondary)',
+        margin: '0 0 12px 0',
+      }}
+    >
+      {children}
+    </p>
+  );
+}
+
 /** Action row list with bottom borders (used in Single/Bulk sections) */
 function ActionList({ items }: { items: React.ReactNode[] }) {
   return (
@@ -130,26 +146,6 @@ function ActionList({ items }: { items: React.ReactNode[] }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function List({ items }: { items: React.ReactNode[] }) {
-  return (
-    <ul
-      style={{
-        fontSize: '13px',
-        lineHeight: 1.6,
-        color: 'var(--chrome-text-primary)',
-        paddingLeft: '18px',
-        margin: '0 0 12px 0',
-      }}
-    >
-      {items.map((item, idx) => (
-        <li key={idx} style={{ marginBottom: '6px' }}>
-          {item}
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -209,7 +205,7 @@ function IntroSection() {
         >
           What you can do
         </h3>
-        <List
+        <ActionList
           items={[
             <>
               <strong>Single task:</strong> Capture the current tab, add a title, attach to the
@@ -220,8 +216,9 @@ function IntroSection() {
               separate Jira task, processed in the background while you keep working.
             </>,
             <>
-              <strong>Annotations</strong> <Badge>coming soon</Badge>: Mark up screenshots with
-              arrows, rectangles, and labels before attaching them.
+              <strong>Annotations</strong>
+              <Badge>coming soon</Badge>: Mark up screenshots with arrows, rectangles, and labels
+              before attaching them.
             </>,
           ]}
         />
@@ -256,7 +253,7 @@ function IntroSection() {
         >
           Workflow options
         </h3>
-        <List
+        <ActionList
           items={[
             <>
               <strong>Project + issue type:</strong> Picked from your actual Jira projects — no
@@ -278,10 +275,10 @@ function IntroSection() {
         />
       </Card>
 
-      <Text>
+      <SmallText>
         💡 <strong>Tip:</strong> think of one workflow per context — "QA bugs", "UX feedback",
         "PM tasks". Don't try to make one workflow do everything.
-      </Text>
+      </SmallText>
     </div>
   );
 }
@@ -317,15 +314,7 @@ function QuickSetupSection() {
         text="Open Settings (⚙ top right). Enter your Jira subdomain, email address, and the API token. Hit “Test connection” — you should see your display name confirmed."
       >
         <CodeBlock>yourcompany.atlassian.net</CodeBlock>
-        <p
-          style={{
-            fontSize: '12px',
-            color: 'var(--chrome-text-secondary)',
-            margin: '6px 0 0 0',
-          }}
-        >
-          Enter only the subdomain, not the full URL.
-        </p>
+        <SmallText>Enter only the subdomain, not the full URL.</SmallText>
       </Step>
 
       <Step
@@ -352,16 +341,16 @@ function QuickSetupSection() {
       </Text>
 
       <Card>
-        <List
+        <ActionList
           items={[
             <>
               <strong>Global defaults:</strong> Set your preferred quality and max width in
               Settings. Applies to all workflows unless overridden.
             </>,
             <>
-              <strong>Per-workflow override</strong> <Badge>coming soon</Badge>: Override
-              compression settings for a specific workflow — useful if one project needs higher
-              fidelity.
+              <strong>Per-workflow override</strong>
+              <Badge>coming soon</Badge>: Override compression settings for a specific workflow —
+              useful if one project needs higher fidelity.
             </>,
           ]}
         />
@@ -462,7 +451,8 @@ function SingleTaskSection() {
             color: 'var(--chrome-text-primary)',
           }}
         >
-          Multiple screenshots per task <Badge>coming soon</Badge>
+          Multiple screenshots per task
+          <Badge>coming soon</Badge>
         </h3>
         <Text>
           A thumbnail strip will let you capture several screenshots and attach all of them to a
@@ -509,27 +499,34 @@ function BulkUploadSection() {
           color: 'var(--chrome-text-primary)',
         }}
       >
-        Status meanings
+        Task status
       </h3>
-      <List
-        items={[
-          <>
-            <span style={{ marginRight: '6px' }}>⏸️</span>Waiting to start
-          </>,
-          <>
-            <span style={{ marginRight: '6px' }}>⏳</span>Creating issue in Jira
-          </>,
-          <>
-            <span style={{ marginRight: '6px' }}>⏳</span>Uploading screenshot
-          </>,
-          <>
-            <span style={{ marginRight: '6px' }}>✅</span>Done — task key shown as a link
-          </>,
-          <>
-            <span style={{ marginRight: '6px' }}>❌</span>Failed — retry button appears
-          </>,
-        ]}
-      />
+
+      <div style={{ margin: '0 0 18px 0' }}>
+        {[
+          { icon: '⏸️', text: 'Waiting to start' },
+          { icon: '⏳', text: 'Creating issue in Jira' },
+          { icon: '⏳', text: 'Uploading screenshot' },
+          { icon: '✅', text: 'Done — task key shown as a link' },
+          { icon: '❌', text: 'Failed — retry button appears' },
+        ].map((row, idx) => (
+          <div
+            key={idx}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '13px',
+              lineHeight: 1.6,
+              color: 'var(--chrome-text-primary)',
+              padding: '6px 0',
+            }}
+          >
+            <span>{row.icon}</span>
+            <span>{row.text}</span>
+          </div>
+        ))}
+      </div>
 
       <Divider />
 
@@ -606,8 +603,9 @@ function ScreenshotSection() {
           <span style={{ marginRight: '6px' }}>🗜️</span>Compression
         </h3>
         <Text>
-          Screenshots are automatically converted to JPEG and resized if needed. Default: Quality
-          85%, Max width 1920px — roughly 10× smaller than PNG, sharp enough for UI work.
+          Screenshots are automatically converted to JPEG and resized if needed. Quality: 85% —
+          roughly 10× smaller than PNG. Max width: 1920px — wider screenshots scale down
+          proportionally.
         </Text>
       </Card>
 
@@ -639,7 +637,8 @@ function ScreenshotSection() {
             color: 'var(--chrome-text-primary)',
           }}
         >
-          Annotations <Badge>coming soon</Badge>
+          Annotations
+          <Badge>coming soon</Badge>
         </h3>
         <Text>
           A dedicated editor will open with your screenshot and let you add arrows, rectangles, text
@@ -664,6 +663,7 @@ function FeedbackSection() {
           borderRadius: '6px',
           padding: '12px',
           marginTop: '12px',
+          marginBottom: '10px',
         }}
       >
         <h3
@@ -671,7 +671,7 @@ function FeedbackSection() {
             fontSize: '14px',
             fontWeight: 600,
             margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
+            color: 'var(--chrome-blue)',
           }}
         >
           Found a bug or have a request?
@@ -713,7 +713,7 @@ function FeedbackSection() {
         >
           What makes a good report
         </h3>
-        <List
+        <ActionList
           items={[
             <>
               <strong>Steps to reproduce:</strong> What did you do, in what order?
@@ -740,6 +740,7 @@ function FeedbackSection() {
           marginTop: '10px',
         }}
       >
+        <div style={{ fontSize: '20px', marginBottom: '6px' }}>🤝</div>
         <h3
           style={{
             fontSize: '14px',
