@@ -82,7 +82,7 @@ export async function searchIssues(
   projectId: string,
 ): Promise<Array<{ key: string; summary: string }>> {
   const searchQuery = query.toLowerCase();
-  const data = (await apiFetch(
+  const pickerData = (await apiFetch(
     `/issue/picker?query=${encodeURIComponent(searchQuery)}&currentProjectId=${encodeURIComponent(projectId)}&showSubTasks=false`,
   )) as {
     sections: Array<{
@@ -91,7 +91,7 @@ export async function searchIssues(
   };
 
   const results: Array<{ key: string; summary: string }> = [];
-  for (const section of data.sections ?? []) {
+  for (const section of pickerData.sections ?? []) {
     for (const issue of section.issues ?? []) {
       results.push({
         key: issue.key,
@@ -99,6 +99,21 @@ export async function searchIssues(
       });
     }
   }
+
+  if (query && results.length < 3) {
+    const jqlData = (await apiFetch(
+      `/search?jql=project%3D"${projectId}"%20AND%20summary~"${encodeURIComponent(query)}"%20AND%20statusCategory%20!%3D%20Done&maxResults=20&fields=summary,key`,
+    )) as { issues: Array<{ key: string; fields: { summary: string } }> };
+
+    const seen = new Set(results.map((r) => r.key));
+    for (const issue of jqlData.issues ?? []) {
+      if (!seen.has(issue.key)) {
+        results.push({ key: issue.key, summary: issue.fields.summary });
+        seen.add(issue.key);
+      }
+    }
+  }
+
   return results;
 }
 
