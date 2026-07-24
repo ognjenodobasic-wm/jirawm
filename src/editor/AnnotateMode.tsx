@@ -104,25 +104,40 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
   }, []);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !containerRef.current) return;
 
-    const canvas = new fabric.Canvas(canvasRef.current, {
+    const canvasEl = canvasRef.current;
+    const containerEl = containerRef.current;
+    const canvas = new fabric.Canvas(canvasEl, {
       selection: true,
       preserveObjectStacking: true,
     });
     canvasInstanceRef.current = canvas;
 
-    fabric.FabricImage.fromURL(dataUrl).then((img) => {
-      const rawWidth = img.width ?? 800;
-      const rawHeight = img.height ?? 600;
-      const availableWidth = window.innerWidth;
-      const availableHeight = window.innerHeight - TOOLBAR_HEIGHT;
-      const scale = Math.min(availableWidth / rawWidth, availableHeight / rawHeight, 1);
+    const img = new Image();
+    img.onload = () => {
+      const naturalW = img.naturalWidth;
+      const naturalH = img.naturalHeight;
 
-      canvas.setZoom(scale);
-      canvas.setDimensions({ width: rawWidth * scale, height: rawHeight * scale });
-      canvas.backgroundImage = img;
-      canvas.requestRenderAll();
+      // Initialize canvas at full image resolution
+      canvas.setDimensions({ width: naturalW, height: naturalH });
+
+      // Set background image 1:1
+      fabric.FabricImage.fromURL(dataUrl).then((fabricImg) => {
+        canvas.backgroundImage = fabricImg;
+        canvas.requestRenderAll();
+      });
+
+      // Fit to container via viewport transform (affects both visual and hit-test)
+      const containerW = containerEl.clientWidth;
+      const containerH = containerEl.clientHeight;
+      const scaleToFit = Math.min(containerW / naturalW, containerH / naturalH, 1);
+
+      canvas.setZoom(scaleToFit);
+      canvas.setDimensions({
+        width: naturalW * scaleToFit,
+        height: naturalH * scaleToFit,
+      });
 
       // Initial history snapshot
       const initial = JSON.stringify(canvas.toJSON());
@@ -130,19 +145,22 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       historyCursorRef.current = 0;
       setCanUndo(false);
       setCanRedo(false);
-    });
+    };
+    img.src = dataUrl;
 
     const handleResize = () => {
-      fabric.FabricImage.fromURL(dataUrl).then((img) => {
-        const rawWidth = img.width ?? 800;
-        const rawHeight = img.height ?? 600;
-        const availableWidth = window.innerWidth;
-        const availableHeight = window.innerHeight - TOOLBAR_HEIGHT;
-        const scale = Math.min(availableWidth / rawWidth, availableHeight / rawHeight, 1);
-        canvas.setZoom(scale);
-        canvas.setDimensions({ width: rawWidth * scale, height: rawHeight * scale });
-        canvas.backgroundImage = img;
-        canvas.requestRenderAll();
+      if (!containerEl || !canvas) return;
+      const naturalW = canvas.getWidth() / canvas.getZoom();
+      const naturalH = canvas.getHeight() / canvas.getZoom();
+      const newScale = Math.min(
+        containerEl.clientWidth / naturalW,
+        containerEl.clientHeight / naturalH,
+        1
+      );
+      canvas.setZoom(newScale);
+      canvas.setDimensions({
+        width: naturalW * newScale,
+        height: naturalH * newScale,
       });
     };
     window.addEventListener('resize', handleResize);
@@ -440,7 +458,8 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     if (!canvas) return;
     setIsDone(true);
     requestAnimationFrame(() => {
-      const result = canvas.toDataURL({ format: 'jpeg', quality: 0.9, multiplier: 1 });
+      const zoom = canvas.getZoom();
+      const result = canvas.toDataURL({ format: 'jpeg', quality: 0.9, multiplier: 1 / zoom });
       onDone(result);
     });
   };
