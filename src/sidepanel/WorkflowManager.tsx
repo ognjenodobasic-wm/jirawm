@@ -360,6 +360,18 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
         </button>
       </div>
 
+      {/* Workflow name */}
+      <div className="flex flex-col gap-1">
+        <label style={labelStyle}>Workflow name *</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="QA Bug Report"
+          style={inputStyle}
+        />
+      </div>
+
       {/* Step 1 — Project */}
       <div className="flex flex-col gap-1">
         <label style={labelStyle}>Project *</label>
@@ -598,19 +610,8 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
         </div>
       )}
 
-      {/* Final — Name + Save */}
+      {/* Final — Save */}
       <div className="flex flex-col gap-2" style={{ marginTop: '4px' }}>
-        <div className="flex flex-col gap-1">
-          <label style={labelStyle}>Workflow name *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="QA Bug Report"
-            style={inputStyle}
-          />
-        </div>
-
         {saveError && (
           <p className="text-xs" style={{ color: 'var(--chrome-red)' }}>
             ✗ {saveError}
