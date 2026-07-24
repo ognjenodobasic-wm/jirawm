@@ -12,7 +12,8 @@
     "alarms"
   ],
   "host_permissions": [
-    "https://*.atlassian.net/*"
+    "https://*.atlassian.net/*",
+    "<all_urls>"
   ],
   "action": {
     "default_icon": {
