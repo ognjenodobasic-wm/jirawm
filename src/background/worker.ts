@@ -5,17 +5,10 @@ import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/ji
 
 const BULK_PROGRESS_KEY = 'jirawm_bulk_progress';
 
-function toADF(text: string): object {
-  return {
-    type: 'doc',
-    version: 1,
-    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
-  };
-}
+let activeBulkRun: Promise<void> | null = null;
 
 type BulkMessage = {
   type: 'START_BULK';
-  tasks: BulkTask[];
   workflowId: string;
 };
 
@@ -31,13 +24,21 @@ chrome.action.onClicked.addListener((tab) => {
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
   const msg = message as BulkMessage;
   if (msg.type === 'START_BULK') {
-    processBulkTasks(msg.tasks, msg.workflowId)
+    handleStartBulk(msg.workflowId)
       .then(() => sendResponse({ ok: true }))
       .catch((err) => sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) }));
     return true;
   }
   return false;
 });
+
+// Resume any interrupted bulk session after worker restart
+void guardedProcessBulkTasksWrapper();
+
+async function guardedProcessBulkTasksWrapper(): Promise<void> {
+  if (activeBulkRun) return;
+  await resumeBulkIfNeeded();
+}
 
 chrome.notifications.onClicked.addListener(() => {
   chrome.windows.getCurrent().then((window) => {
@@ -51,47 +52,67 @@ async function saveProgress(tasks: BulkTask[]): Promise<void> {
   await setLocal(BULK_PROGRESS_KEY, tasks);
 }
 
-async function processBulkTasks(tasks: BulkTask[], workflowId: string): Promise<void> {
-  const [auth, workflows] = await Promise.all([
+async function resumeBulkIfNeeded(): Promise<void> {
+  const [auth, workflows, progress] = await Promise.all([
     getLocal<AuthConfig>('auth'),
     getLocal<Workflow[]>('jirawm_workflows'),
+    getLocal<BulkTask[]>(BULK_PROGRESS_KEY),
   ]);
 
-  if (!auth) throw new Error('Jira auth not configured.');
+  if (!auth || !progress || progress.length === 0) return;
+  if (progress.every((t) => t.status === 'done' || t.status === 'failed')) return;
+
   setAuth(auth);
 
+  const workflowId = progress[0]?.workflowId;
+  if (!workflowId) return;
   const workflow = workflows?.find((w) => w.id === workflowId);
-  if (!workflow) throw new Error('Selected workflow not found.');
+  if (!workflow) return;
 
-  await chrome.alarms.create('keepAlive', { periodInMinutes: 0.33 });
-
-  const existing = (await getLocal<BulkTask[]>(BULK_PROGRESS_KEY)) ?? [];
-  const merged = [...existing];
-  for (const task of tasks) {
-    const idx = merged.findIndex((t) => t.id === task.id);
-    if (idx >= 0) {
-      merged[idx] = { ...task };
-    } else {
-      merged.push({ ...task });
+  // Any 'creating' task without an issueKey is unsafe to auto-retry because the issue may
+  // have already been created before the worker was killed. Mark it as failed so the user
+  // can retry manually after confirming whether the issue exists.
+  let changed = false;
+  for (const task of progress) {
+    if (task.status === 'creating' && !task.issueKey) {
+      task.status = 'failed';
+      task.error =
+        'Bulk processing was interrupted while creating the Jira issue. Retry manually to avoid a possible duplicate.';
+      changed = true;
     }
   }
-  const progress: BulkTask[] = merged;
-  await saveProgress(progress);
+  if (changed) {
+    await saveProgress(progress);
+  }
+
+  await guardedProcessBulkTasks(progress, workflow);
+}
+
+async function processBulkTasks(progress: BulkTask[], workflow: Workflow): Promise<void> {
+  await chrome.alarms.create('keepAlive', { periodInMinutes: 0.33 });
 
   let createdCount = 0;
   let failedCount = 0;
 
   for (let i = 0; i < progress.length; i++) {
     const task = progress[i];
-    if (task.status === 'done') continue;
+    if (task.status === 'done' || task.status === 'failed') continue;
 
     try {
+      if (task.status === 'uploading' && task.issueKey) {
+        await attachScreenshot(task.issueKey, task.screenshotBase64, `${task.issueKey}-screenshot.jpg`);
+        task.status = 'done';
+        createdCount++;
+        await saveProgress(progress);
+        continue;
+      }
+
       task.status = 'creating';
       await saveProgress(progress);
 
       const fields: Record<string, unknown> = buildWorkflowFields(workflow);
       if (task.description?.trim()) {
-        fields.description = toADF(task.description.trim());
+        fields.description = task.description.trim();
       }
       if (task.assignee) {
         fields.assignee = { accountId: task.assignee };
@@ -139,4 +160,47 @@ async function processBulkTasks(tasks: BulkTask[], workflowId: string): Promise<
     title: 'JiraWM Bulk Upload',
     message: notificationMessage,
   });
+}
+
+async function guardedProcessBulkTasks(progress: BulkTask[], workflow: Workflow): Promise<void> {
+  if (activeBulkRun) {
+    await activeBulkRun;
+    return;
+  }
+
+  activeBulkRun = (async () => {
+    try {
+      await processBulkTasks(progress, workflow);
+    } finally {
+      activeBulkRun = null;
+    }
+  })();
+
+  await activeBulkRun;
+}
+
+async function handleStartBulk(workflowId: string): Promise<void> {
+  if (activeBulkRun) {
+    await activeBulkRun;
+    return;
+  }
+
+  const [auth, workflows] = await Promise.all([
+    getLocal<AuthConfig>('auth'),
+    getLocal<Workflow[]>('jirawm_workflows'),
+  ]);
+
+  if (!auth) throw new Error('Jira auth not configured.');
+  setAuth(auth);
+
+  const workflow = workflows?.find((w) => w.id === workflowId);
+  if (!workflow) throw new Error('Selected workflow not found.');
+
+  const progress = (await getLocal<BulkTask[]>(BULK_PROGRESS_KEY)) ?? [];
+  const taggedProgress = progress.map((task) =>
+    task.workflowId === workflowId ? task : { ...task, workflowId },
+  );
+  await saveProgress(taggedProgress);
+
+  await guardedProcessBulkTasks(taggedProgress, workflow);
 }

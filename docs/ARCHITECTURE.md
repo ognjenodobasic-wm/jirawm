@@ -18,22 +18,22 @@ MV3 ekstenzija se izvršava u tri odvojena JS okruženja. **Nijedno ne deli memo
 Svaki kontekst je zaseban V8 izolat. `setAuth()` pozvan u Side Panelu **ne** postavlja `_auth` u workeru — zato i Side Panel i worker svaki za sebe učitavaju `auth` iz `chrome.storage.local` i pozivaju `setAuth()` pre bilo kog Jira poziva (vidi `SingleMode.handleSubmit` i `worker.processBulkTasks`).
 
 ### Kako komuniciraju (i editor popup)
-- **Male poruke / signali** → `chrome.runtime.sendMessage`. Primer: Side Panel šalje `{ type: 'START_BULK', tasks, workflowId }` workeru (`BulkMode.startUpload`).
+- **Male poruke / signali** → `chrome.runtime.sendMessage`. Primer: Side Panel šalje `{ type: 'START_BULK', workflowId }` workeru (`BulkMode.startUpload`).
 - **Veliki podaci (base64 screenshotovi)** → NE idu kroz `sendMessage`. Umesto toga pišu se u `chrome.storage.local` kao bafer, a čitalac ih odatle preuzima.
-  - Napomena: trenutno `BulkMode` šalje i `tasks` (sa base64) i kroz `sendMessage` i upisuje ih u `jirawm_bulk_progress`. Worker svejedno merge-uje sa storage verzijom, pa je storage izvor istine za progres.
+  - `BulkMode` upisuje kompletan `BulkTask[]` (uključujući base64 screenshotove) u `jirawm_bulk_progress`, a zatim šalje samo signal `{ type: 'START_BULK', workflowId }`. Worker učitava taskove isključivo iz storage-a.
 - **Deljeno stanje / progres** → `chrome.storage`. UI poll-uje `jirawm_bulk_progress` svake 1s da bi ažurirao tabelu.
 
 ---
 
 ## Chrome Storage mapa
 
-Dva storage area: `local` (osetljivo + privremeno, nikad se ne sinhronizuje) i `sync` (workflowi, prati korisnikov Chrome nalog).
+Workflowi se čuvaju u `local` storage-u. `sync` je legacy lokacija iz koje se podaci uklanjaju prilikom učitavanja ekstenzije (`removeLegacySyncWorkflows`).
 
 | Ključ | Area | Sadržaj | Piše | Čita |
 |-------|------|---------|------|------|
 | `auth` | local | `{ domain, email, apiToken, accountId }` | `Settings.handleSave` | `SingleMode`, `SidePanel`, `WorkflowManager`, `worker` |
 | `accountId` | local | `string` — Jira accountId | `Settings.handleSave` (posle testConnection) | `SidePanel` (auth gate) |
-| `jirawm_workflows` | **sync** | `Workflow[]` | `workflows.saveWorkflow/deleteWorkflow`, `Settings` import | `SidePanel`, `SingleMode`, `worker`, `WorkflowManager` |
+| `jirawm_workflows` | **local** | `Workflow[]` | `workflows.saveWorkflow/deleteWorkflow`, `Settings` import | `SidePanel`, `SingleMode`, `worker`, `WorkflowManager` |
 | `jirawm_bulk_progress` | local | `BulkTask[]` — status svakog taska | `BulkMode`, `worker.saveProgress` | `BulkMode` (poll), `worker` |
 | `jirawm_export_snapshot` | local | `ExportSnapshot` — meta poslednjeg exporta | `Settings.handleExport` | `Settings` | 
 | `jirawm_compression` | local | `{ quality, maxWidth }` | `Settings.handleSaveCompression` | `SingleMode`, `Settings` |
@@ -42,7 +42,7 @@ Dva storage area: `local` (osetljivo + privremeno, nikad se ne sinhronizuje) i `
 | `annotationResult` | local | `AnnotationResult` — anotovani dataUrl + index | `AnnotateMode` (Done) | `SingleMode` ANNOTATION_DONE listener |
 | `editorWindowBounds` | local | `WindowBounds` — poslednje dimenzije editor popupa | `useWindowBounds` hook | `SingleMode.openEditor` |
 
-**Pravila (iz CLAUDE.md):** token/email/domain uvek `local`, nikad sync. Workflowi uvek `sync`. Nikad `localStorage`.
+**Pravila (iz CLAUDE.md):** token/email/domain uvek `local`, nikad sync. Workflowi uvek `local`. Nikad `localStorage`. `removeLegacySyncWorkflows()` čisti preostale sync zapise.
 
 ---
 
@@ -73,11 +73,12 @@ Create issue i attach su **dva odvojena poziva**. `issue.key` stiže iz create o
 [UI BulkMode] Start Upload
    └─ buildTasks(): svaki fajl → base64 (BulkTask[])
    └─ setLocal('jirawm_bulk_progress', tasks)
-   └─ sendMessage({type:'START_BULK', tasks, workflowId})
+   └─ sendMessage({type:'START_BULK', workflowId})
    └─ startPolling(): svake 1s čita jirawm_bulk_progress → ažurira tabelu
 
 [Worker processBulkTasks]  ── SEKVENCIJALNO, jedan po jedan ──
-   └─ getLocal('auth') + getSync('jirawm_workflows')  → setAuth()
+   └─ getLocal('auth') + getLocal('jirawm_workflows')  → setAuth()
+   └─ resumeBulkIfNeeded()  (automatski oporavak prekinutih bulk sesija posle restarta workera)
    └─ chrome.alarms.create('keepAlive', {periodInMinutes: 0.33})
    └─ za svaki task (preskače status==='done'):
         status='creating'  → saveProgress()
@@ -208,11 +209,9 @@ chrome.windows.onBoundsChanged.addListener(listener);
 ## Poznate zamke
 
 1. ~~**`accountId` ključ se čita ali se nikad ne upisuje.**~~ — **Popravljeno.** `Settings.handleSave` sada snima `accountId` i u `auth` objekat i kao top-level `accountId` ključ (`setLocal('accountId', accountId)`). `SidePanel` auth gate čita top-level ključ i radi ispravno.
-2. **Nekonzistentan storage za export snapshot.** `Settings` čita/piše `jirawm_export_snapshot` u `local` (usklađeno sa CLAUDE.md), ali `workflows.ts` (`getExportSnapshot`/`exportWorkflows`) koristi `sync`. Aktivni UI put je `Settings` (local); `workflows.ts` helperi za export/snapshot se trenutno ne koriste iz UI-a.
-3. **select/option defaults kao goli string** — rešeno preko `serializeField`, ali samo za tipove iz tabele gore. Egzotičniji custom tipovi (cascading select, version, component) padaju u `default` granu i idu kao string → mogu vratiti 400.
-4. **Worker restart recovery ne postoji.** Ako MV3 worker bude ugašen usred bulk obrade uprkos `keepAlive` alarmu (npr. browser pod pritiskom memorije), petlja se ne nastavlja automatski. `jirawm_bulk_progress` ostaje "zamrznut" na poslednjem status-u, a UI poll bez timeout-a nastavlja beskonačno. Nema logike koja na restart workera pokupi nedovršene taskove i nastavi.
-5. **Dead code za komandu.** Manifest koristi rezervisanu `_execute_action`; svaki stari `chrome.commands.onCommand` listener za `open-jirawm` se nikad ne okida (trenutno je uklonjen iz workera, ali paziti pri dodavanju novih komandi).
-6. **Bulk `sendMessage` nosi base64.** Suprotno pravilu "ne slati velike base64 kroz sendMessage". Radi jer je interno, ali za velike serije razmisliti o čistom storage-buffer pristupu (worker već merge-uje iz storage-a).
+2. **select/option defaults kao goli string** — rešeno preko `serializeField`, ali samo za tipove iz tabele gore. Egzotičniji custom tipovi (cascading select, version, component) padaju u `default` granu i idu kao string → mogu vratiti 400.
+3. **Worker restart recovery za bulk.** Implementiran `resumeBulkIfNeeded()`: posle restarta workera, ako `jirawm_bulk_progress` sadrži taskove koji nisu `done`/`failed`, worker automatski nastavlja obradu. Task sa statusom `uploading` i postojećim `issueKey` nastavlja samo kačenjem screenshota (bez ponovnog kreiranja). Task sa statusom `creating` i bez `issueKey` se NE automatski ponovo kreira — označava se kao `failed` sa porukom `Bulk processing was interrupted while creating the Jira issue. Retry manually to avoid a possible duplicate.`, a korisnik ga može retry-ovati iz UI-a. In-memory guard (`activeBulkRun`) sprečava paralelno pokretanje više bulk obrada ako `START_BULK` poruka stigne dok recovery još traje.
+4. **Dead code za komandu.** Manifest koristi rezervisanu `_execute_action`; svaki stari `chrome.commands.onCommand` listener za `open-jirawm` se nikad ne okida (trenutno je uklonjen iz workera, ali paziti pri dodavanju novih komandi).
 
 ---
 

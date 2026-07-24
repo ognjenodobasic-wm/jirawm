@@ -16,7 +16,7 @@ Workflow pamti:
 - Izabrana **opciona polja** i njihove default vrednosti
 - Podešavanja kvaliteta screenshota
 
-Workflowi se čuvaju u `chrome.storage.sync`, pa te prate na svim uređajima gde si ulogovan u isti Chrome nalog.
+Workflowi se čuvaju u `chrome.storage.local`, lokalno u tvom browseru.
 
 ---
 

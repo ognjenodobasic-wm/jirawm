@@ -60,6 +60,7 @@ export interface BulkTask {
   status: 'waiting' | 'creating' | 'uploading' | 'done' | 'failed';
   issueKey?: string;
   error?: string;
+  workflowId?: string;
 }
 
 export interface ExportSnapshot {

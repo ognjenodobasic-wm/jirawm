@@ -9,7 +9,7 @@ Internal use only. No server, no database, no OAuth.
 - Faza 2 (Bulk mod): ✅ Kompletna
 - Faza 3 (Workflow polish): ✅ Kompletna
 - Faza 4 (Više screenshotova): ✅ Kompletna
-- Faza 5 (Anotacije — editor popup): 🔧 U toku — implementirana, čeka end-to-end test
+- Faza 5 (Anotacije — editor popup): ✅ Kompletna
 
 ## Faze razvoja
 - [x] Faza 1 — Single Task: capture → create issue → attach screenshot
@@ -39,7 +39,7 @@ Large data (screenshots, base64): use chrome.storage.local as buffer, NOT sendMe
 
 ## Chrome storage rules
 - API token, email, domain → chrome.storage.local (sensitive, never synced)
-- Workflows → chrome.storage.sync (synced across user's Chrome instances)
+- Workflows → chrome.storage.local (legacy sync data is cleared on startup via `removeLegacySyncWorkflows`)
 - Bulk progress, pending screenshots → chrome.storage.local (temporary)
 - Export snapshot metadata → chrome.storage.local
 
@@ -82,25 +82,25 @@ Update chrome.storage.local status after each step: creating → uploading → d
 
 ## Faza 5 — Checklist (editor popup)
 
-- [ ] `editor.html` + Vite entry za editor kontekst (`src/editor/main.tsx`)
-- [ ] `useWindowBounds.ts` — čitanje/čuvanje dimenzija prozora (debounce 500ms)
-- [ ] `useEditorTransfer.ts` — storage protokol (pendingEditor, annotationResult, cleanup)
-- [ ] `chrome.windows.create` integracija u SingleMode — jedan popup istovremeno guard
-- [ ] Preview mode — readonly, fit-to-window, [Annotate] i [Close] dugmad, Escape shortcut
-- [ ] Annotate mode — Fabric.js canvas inicijalizacija sa screenshot-om (`AnnotateMode.tsx`)
-- [ ] Toolbar — Select, Arrow, Rect (outline+fill toggle), Numbered marker, Text
-- [ ] Boje — 5 preset-a (#ff4444, #ffcc00, #00cc88, #4499ff, #ffffff)
-- [ ] Stroke width — 2/3/4px dropdown
-- [ ] Numbered marker auto-increment counter u toolbar-u
-- [ ] Undo/Redo — Fabric.js history (Cmd+Z / Cmd+Y)
-- [ ] Delete selected — Delete/Backspace + toolbar dugme
-- [ ] "Done" — canvas export JPEG 0.9 → storage → sendMessage ANNOTATION_DONE → zatvori
-- [ ] "Cancel" — zatvori popup, original nepromenjen
-- [ ] Side Panel listener — ANNOTATION_DONE handler, replace thumbnail, cleanup storage
-- [ ] Anotovani screenshot zamenjuje original u strip-u
-- [ ] ✎ badge na thumbnail koji je anotiran
-- [ ] `npx tsc --noEmit` — 0 grešaka
-- [ ] `npm run build` — build prolazi
+- [x] `editor.html` + Vite entry za editor kontekst (`src/editor/main.tsx`)
+- [x] `useWindowBounds.ts` — čitanje/čuvanje dimenzija prozora (debounce 500ms)
+- [x] `useEditorTransfer.ts` — storage protokol (pendingEditor, annotationResult, cleanup)
+- [x] `chrome.windows.create` integracija u SingleMode — jedan popup istovremeno guard
+- [x] Preview mode — readonly, fit-to-window, [Annotate] i [Close] dugmad, Escape shortcut
+- [x] Annotate mode — Fabric.js canvas inicijalizacija sa screenshot-om (`AnnotateMode.tsx`)
+- [x] Toolbar — Select, Arrow, Rect (outline+fill toggle), Numbered marker, Text
+- [x] Boje — 5 preset-a (#ff4444, #ffcc00, #00cc88, #4499ff, #ffffff)
+- [x] Stroke width — 2/3/4px dropdown
+- [x] Numbered marker auto-increment counter u toolbar-u
+- [x] Undo/Redo — Fabric.js history (Cmd+Z / Cmd+Y)
+- [x] Delete selected — Delete/Backspace + toolbar dugme
+- [x] "Done" — canvas export JPEG 0.9 → storage → sendMessage ANNOTATION_DONE → zatvori
+- [x] "Cancel" — zatvori popup, original nepromenjen
+- [x] Side Panel listener — ANNOTATION_DONE handler, replace thumbnail, cleanup storage
+- [x] Anotovani screenshot zamenjuje original u strip-u
+- [x] ✎ badge na thumbnail koji je anotiran
+- [x] `npx tsc --noEmit` — 0 grešaka
+- [x] `npm run build` — build prolazi
 
 ## What NOT to do
 - Never run npm run dev or start a dev server

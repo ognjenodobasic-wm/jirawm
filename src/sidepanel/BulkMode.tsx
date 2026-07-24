@@ -187,10 +187,10 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   async function startUpload() {
     if (rows.length === 0 || !selectedWorkflowId) return;
 
-    const tasks = await buildTasks(rows);
-    setRows((prev) => prev.map((row) => ({ ...row, status: 'waiting' })));
-    await setLocal(BULK_PROGRESS_KEY, tasks);
-    chrome.runtime.sendMessage({ type: 'START_BULK', tasks, workflowId: selectedWorkflowId });
+      const tasks = (await buildTasks(rows)).map((task) => ({ ...task, workflowId: selectedWorkflowId }));
+      setRows((prev) => prev.map((row) => ({ ...row, status: 'waiting' })));
+      await setLocal(BULK_PROGRESS_KEY, tasks);
+    chrome.runtime.sendMessage({ type: 'START_BULK', workflowId: selectedWorkflowId });
     startPolling();
   }
 
@@ -198,11 +198,17 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
     const failedRows = rows.filter((row) => row.status === 'failed');
     if (failedRows.length === 0 || !selectedWorkflowId) return;
 
-    const tasks = await buildTasks(failedRows);
+    const progress = (await getLocal<BulkTask[]>(BULK_PROGRESS_KEY)) ?? [];
+    const resetProgress = progress.map((task) =>
+      task.status === 'failed'
+        ? { ...task, status: 'waiting' as const, error: undefined }
+        : task,
+    );
+    await setLocal(BULK_PROGRESS_KEY, resetProgress);
     setRows((prev) =>
       prev.map((row) => (row.status === 'failed' ? { ...row, status: 'waiting' } : row)),
     );
-    chrome.runtime.sendMessage({ type: 'START_BULK', tasks, workflowId: selectedWorkflowId });
+    chrome.runtime.sendMessage({ type: 'START_BULK', workflowId: selectedWorkflowId });
     startPolling();
   }
 
