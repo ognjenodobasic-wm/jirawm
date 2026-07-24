@@ -11,6 +11,13 @@ const SECTIONS: { id: HelpSection; label: string }[] = [
   { id: 'feedback', label: 'Feedback' },
 ];
 
+/* ── Scrollbar styles (injected once) ── */
+const SCROLLBAR_CSS = `
+  .help-content::-webkit-scrollbar { width: 6px; }
+  .help-content::-webkit-scrollbar-thumb { background: var(--chrome-border); border-radius: 3px; }
+  .help-content::-webkit-scrollbar-track { background: transparent; }
+`;
+
 function Badge({ children }: { children: React.ReactNode }) {
   return (
     <span
@@ -36,9 +43,9 @@ function Card({ children }: { children: React.ReactNode }) {
       style={{
         background: 'var(--chrome-surface)',
         border: '1px solid var(--chrome-border)',
-        borderRadius: '8px',
-        padding: '14px',
-        marginTop: '12px',
+        borderRadius: '6px',
+        padding: '12px',
+        marginBottom: '10px',
       }}
     >
       {children}
@@ -103,6 +110,29 @@ function Text({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Action row list with bottom borders (used in Single/Bulk sections) */
+function ActionList({ items }: { items: React.ReactNode[] }) {
+  return (
+    <div style={{ margin: '0 0 12px 0' }}>
+      {items.map((item, idx) => (
+        <div
+          key={idx}
+          style={{
+            fontSize: '13px',
+            lineHeight: 1.6,
+            color: 'var(--chrome-text-primary)',
+            padding: '10px 0',
+            borderBottom:
+              idx < items.length - 1 ? '1px solid var(--chrome-border)' : 'none',
+          }}
+        >
+          {item}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function List({ items }: { items: React.ReactNode[] }) {
   return (
     <ul
@@ -120,6 +150,25 @@ function List({ items }: { items: React.ReactNode[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function CodeBlock({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        background: '#f8f9fa',
+        border: '1px solid var(--chrome-border)',
+        borderRadius: '4px',
+        padding: '8px 10px',
+        fontFamily: "'Courier New', monospace",
+        fontSize: '11px',
+        color: 'var(--chrome-text-primary)',
+        marginTop: '8px',
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -267,20 +316,7 @@ function QuickSetupSection() {
         title="Connect to Jira"
         text="Open Settings (⚙ top right). Enter your Jira subdomain, email address, and the API token. Hit “Test connection” — you should see your display name confirmed."
       >
-        <div
-          style={{
-            background: 'var(--chrome-surface)',
-            border: '1px solid var(--chrome-border)',
-            borderRadius: '6px',
-            padding: '10px 12px',
-            fontFamily: 'monospace',
-            fontSize: '12px',
-            color: 'var(--chrome-text-primary)',
-            marginTop: '8px',
-          }}
-        >
-          yourcompany.atlassian.net
-        </div>
+        <CodeBlock>yourcompany.atlassian.net</CodeBlock>
         <p
           style={{
             fontSize: '12px',
@@ -349,17 +385,18 @@ function Step({
     <div style={{ display: 'flex', gap: '12px', marginBottom: '18px' }}>
       <div
         style={{
-          width: '26px',
-          height: '26px',
+          width: '20px',
+          height: '20px',
           borderRadius: '50%',
           background: 'var(--chrome-blue)',
           color: '#ffffff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '13px',
+          fontSize: '11px',
           fontWeight: 600,
           flexShrink: 0,
+          marginTop: '1px',
         }}
       >
         {number}
@@ -388,7 +425,7 @@ function SingleTaskSection() {
       <SectionTitle>Single task</SectionTitle>
       <Subtitle>Create one Jira task from the current browser tab.</Subtitle>
 
-      <List
+      <ActionList
         items={[
           <>
             <span style={{ marginRight: '6px' }}>1️⃣</span>
@@ -442,7 +479,7 @@ function BulkUploadSection() {
       <SectionTitle>Bulk upload</SectionTitle>
       <Subtitle>Turn a folder of screenshots into Jira tasks without sitting and waiting.</Subtitle>
 
-      <List
+      <ActionList
         items={[
           <>
             <span style={{ marginRight: '6px' }}>📂</span>
@@ -624,8 +661,8 @@ function FeedbackSection() {
         style={{
           background: '#e8f0fe',
           border: '1px solid #c5d9f8',
-          borderRadius: '8px',
-          padding: '14px',
+          borderRadius: '6px',
+          padding: '12px',
           marginTop: '12px',
         }}
       >
@@ -651,12 +688,14 @@ function FeedbackSection() {
             display: 'inline-block',
             background: 'var(--chrome-blue)',
             color: '#ffffff',
-            fontSize: '13px',
+            fontSize: '12px',
             fontWeight: 500,
-            padding: '8px 14px',
-            borderRadius: '6px',
+            padding: '6px 14px',
+            borderRadius: '4px',
             textDecoration: 'none',
-            marginTop: '4px',
+            marginTop: '10px',
+            border: 'none',
+            cursor: 'pointer',
           }}
         >
           Open an issue on GitHub
@@ -695,8 +734,10 @@ function FeedbackSection() {
       <div
         style={{
           border: '1px dashed var(--chrome-border)',
-          borderRadius: '8px',
-          padding: '14px',
+          borderRadius: '6px',
+          padding: '12px',
+          textAlign: 'center',
+          marginTop: '10px',
         }}
       >
         <h3
@@ -755,6 +796,8 @@ export default function Help() {
 
   return (
     <div className="flex h-full">
+      <style>{SCROLLBAR_CSS}</style>
+
       {/* Left sidebar navigation */}
       <nav
         className="shrink-0"
@@ -779,11 +822,26 @@ export default function Help() {
                 fontWeight: isActive ? 500 : 400,
                 border: 'none',
                 borderLeft: isActive
-                  ? '3px solid var(--chrome-blue)'
-                  : '3px solid transparent',
-                background: 'none',
-                color: isActive ? 'var(--chrome-blue)' : 'var(--chrome-text-secondary)',
+                  ? '2px solid var(--chrome-blue)'
+                  : '2px solid transparent',
+                background: isActive ? '#e8f0fe' : 'transparent',
+                color: isActive
+                  ? 'var(--chrome-blue)'
+                  : 'var(--chrome-text-secondary)',
                 cursor: 'pointer',
+                transition: 'all 0.1s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = '#e8eaed';
+                  e.currentTarget.style.color = 'var(--chrome-text-primary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--chrome-text-secondary)';
+                }
               }}
             >
               {label}
@@ -794,7 +852,7 @@ export default function Help() {
 
       {/* Scrollable content area */}
       <div
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto help-content"
         style={{
           padding: '20px 16px',
           background: 'var(--chrome-bg)',
