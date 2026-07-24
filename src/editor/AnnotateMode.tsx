@@ -47,13 +47,22 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     setCanRedo(false);
   }, []);
 
-  const undo = useCallback(() => {
+    const undo = useCallback(() => {
     const canvas = canvasInstanceRef.current;
     if (!canvas || historyCursorRef.current <= 0) return;
     historyCursorRef.current--;
     const snapshot = historyRef.current[historyCursorRef.current];
     if (snapshot) {
       canvas.loadFromJSON(JSON.parse(snapshot)).then(() => {
+        const { w: naturalW, h: naturalH } = naturalSizeRef.current;
+        const availW = window.innerWidth;
+        const availH = window.innerHeight - TOOLBAR_HEIGHT;
+        const zoom = Math.min(availW / naturalW, availH / naturalH, 1);
+        canvas.setZoom(zoom);
+        canvas.setDimensions({
+          width: Math.round(naturalW * zoom),
+          height: Math.round(naturalH * zoom),
+        });
         canvas.renderAll();
         setCanUndo(historyCursorRef.current > 0);
         setCanRedo(historyCursorRef.current < historyRef.current.length - 1);
@@ -68,6 +77,15 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     const snapshot = historyRef.current[historyCursorRef.current];
     if (snapshot) {
       canvas.loadFromJSON(JSON.parse(snapshot)).then(() => {
+        const { w: naturalW, h: naturalH } = naturalSizeRef.current;
+        const availW = window.innerWidth;
+        const availH = window.innerHeight - TOOLBAR_HEIGHT;
+        const zoom = Math.min(availW / naturalW, availH / naturalH, 1);
+        canvas.setZoom(zoom);
+        canvas.setDimensions({
+          width: Math.round(naturalW * zoom),
+          height: Math.round(naturalH * zoom),
+        });
         canvas.renderAll();
         setCanUndo(historyCursorRef.current > 0);
         setCanRedo(historyCursorRef.current < historyRef.current.length - 1);
@@ -108,62 +126,41 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     if (!canvasRef.current || !containerRef.current) return;
 
     const canvasElFromRef = canvasRef.current;
-    const containerElFromRef = containerRef.current;
 
     function initCanvas(naturalW: number, naturalH: number, imageDataUrl: string) {
       naturalSizeRef.current = { w: naturalW, h: naturalH };
 
+      const availW = window.innerWidth;
+      const availH = window.innerHeight - TOOLBAR_HEIGHT;
+      const scaleToFit = Math.min(availW / naturalW, availH / naturalH, 1);
+
+      const displayW = Math.round(naturalW * scaleToFit);
+      const displayH = Math.round(naturalH * scaleToFit);
+
       const fabricCanvas = new fabric.Canvas(canvasElFromRef, {
-        width: naturalW,
-        height: naturalH,
+        width: displayW,
+        height: displayH,
         selection: true,
         preserveObjectStacking: true,
       });
       canvasInstanceRef.current = fabricCanvas;
 
-      // Fit to container via viewport transform (affects both visual and hit-test)
-      const containerW = containerElFromRef.clientWidth;
-      const containerH = containerElFromRef.clientHeight;
-      const scaleToFit = Math.min(containerW / naturalW, containerH / naturalH, 1);
-
       fabricCanvas.setZoom(scaleToFit);
-      fabricCanvas.setDimensions({
-        width: naturalW * scaleToFit,
-        height: naturalH * scaleToFit,
-      });
 
-      // Set background image 1:1 and take initial history snapshot only after it loads
       fabric.FabricImage.fromURL(imageDataUrl).then((fabricImg) => {
         fabricCanvas.backgroundImage = fabricImg;
         fabricCanvas.requestRenderAll();
 
-        requestAnimationFrame(() => {
-          const containerW = containerElFromRef.clientWidth;
-          const containerH = containerElFromRef.clientHeight;
-          if (containerW === 0 || containerH === 0) return;
-          const scaleToFit = Math.min(containerW / naturalW, containerH / naturalH, 1);
-          fabricCanvas.setZoom(scaleToFit);
-          fabricCanvas.setDimensions({
-            width: naturalW * scaleToFit,
-            height: naturalH * scaleToFit,
-          });
-
-          const initial = JSON.stringify(fabricCanvas.toJSON());
-          historyRef.current = [initial];
-          historyCursorRef.current = 0;
-          setCanUndo(false);
-          setCanRedo(false);
-        });
+        const initial = JSON.stringify(fabricCanvas.toJSON());
+        historyRef.current = [initial];
+        historyCursorRef.current = 0;
+        setCanUndo(false);
+        setCanRedo(false);
       });
 
-      const handleObjectModified = () => saveHistory();
-      fabricCanvas.on('object:modified', handleObjectModified);
-      fabricCanvas.on('object:added', () => {
-        resetMarkerCounter();
-      });
-      fabricCanvas.on('object:removed', () => {
-        resetMarkerCounter();
-      });
+      fabricCanvas.on('object:modified', () => saveHistory());
+      fabricCanvas.on('object:added', () => resetMarkerCounter());
+      fabricCanvas.on('object:removed', () => resetMarkerCounter());
     }
 
     const img = new Image();
@@ -174,18 +171,16 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
 
     const handleResize = () => {
       const c = canvasInstanceRef.current;
-      if (!containerElFromRef || !c) return;
+      if (!c) return;
       const { w: naturalW, h: naturalH } = naturalSizeRef.current;
       if (naturalW === 0 || naturalH === 0) return;
-      const newScale = Math.min(
-        containerElFromRef.clientWidth / naturalW,
-        containerElFromRef.clientHeight / naturalH,
-        1
-      );
+      const availW = window.innerWidth;
+      const availH = window.innerHeight - TOOLBAR_HEIGHT;
+      const newScale = Math.min(availW / naturalW, availH / naturalH, 1);
       c.setZoom(newScale);
       c.setDimensions({
-        width: naturalW * newScale,
-        height: naturalH * newScale,
+        width: Math.round(naturalW * newScale),
+        height: Math.round(naturalH * newScale),
       });
     };
     window.addEventListener('resize', handleResize);

@@ -4,3 +4,4 @@ declare namespace chrome.tabs {
     options: chrome.tabs.ImageDetails,
   ): Promise<string>;
 }
+
