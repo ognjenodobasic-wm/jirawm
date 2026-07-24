@@ -150,9 +150,9 @@ export async function searchIssues(
  * Fetch all issue types (with their fields) for a project.
  * Result is cached in chrome.storage.local under `jirawm_createmeta_{projectKey}`.
  */
-export async function getAssignableUsers(projectKey: string): Promise<JiraUser[]> {
+export async function getAssignableUsers(projectKey: string, query = ''): Promise<JiraUser[]> {
   const data = (await apiFetch(
-    `/user/assignable/search?project=${encodeURIComponent(projectKey)}&query=&maxResults=50`,
+    `/user/assignable/search?project=${encodeURIComponent(projectKey)}&query=${encodeURIComponent(query)}&maxResults=50`,
   )) as Array<{
     accountId: string;
     displayName: string;
@@ -167,7 +167,8 @@ export async function getAssignableUsers(projectKey: string): Promise<JiraUser[]
       displayName: u.displayName,
       avatarUrls: { '24x24': u.avatarUrls?.['24x24'] ?? '' },
       active: u.active,
-    }));
+    }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
 export async function getIssueTypes(projectKey: string): Promise<IssueTypeMeta[]> {
