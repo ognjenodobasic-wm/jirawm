@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
-import type { AuthConfig, Workflow, IssueTypeMeta, JiraField } from '../types';
-import { getLocal } from '../lib/storage';
+import type { AuthConfig, Workflow, IssueTypeMeta, JiraField, JiraUser } from '../types';
+import { getLocal, setSync } from '../lib/storage';
 import { saveWorkflow, deleteWorkflow } from '../lib/workflows';
-import { setAuth, getProjects, getIssueTypes, searchIssues } from '../lib/jira';
+import { setAuth, getProjects, getIssueTypes, searchIssues, getAssignableUsers } from '../lib/jira';
+import AssigneeSelect from './components/AssigneeSelect';
 
 interface WorkflowManagerProps {
   editWorkflow?: Workflow;
@@ -86,6 +87,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
   const [requiredDefaults, setRequiredDefaults] = useState<Record<string, string>>({});
   const [selectedOptionalIds, setSelectedOptionalIds] = useState<Set<string>>(new Set());
   const [optionalDefaults, setOptionalDefaults] = useState<Record<string, string>>({});
+  const [defaultAssignee, setDefaultAssignee] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -119,6 +121,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
               if (opt.defaultValue) optDefaults[opt.fieldId] = opt.defaultValue;
             }
             setOptionalDefaults(optDefaults);
+            setDefaultAssignee(editWorkflow.defaultAssignee ?? null);
           }
         }
       } catch (err) {
@@ -143,7 +146,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
     }
   }, [editWorkflow, issueTypesState]);
 
-  // Step 2 — load issue types when a project is selected
+  // Step 2 — load issue types and assignable users when a project is selected
   useEffect(() => {
     if (!projectKey) {
       setIssueTypesState({ status: 'idle' });
@@ -151,6 +154,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
     }
     let cancelled = false;
     setIssueTypesState({ status: 'loading' });
+
     getIssueTypes(projectKey)
       .then((issueTypes) => {
         if (!cancelled) setIssueTypesState({ status: 'ready', issueTypes });
@@ -163,6 +167,19 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
           });
         }
       });
+
+    getAssignableUsers(projectKey)
+      .then((users) => {
+        if (!cancelled) {
+          void setSync<JiraUser[]>(`assignableUsers_${projectKey}`, users);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to load assignable users:', err);
+        }
+      });
+
     return () => {
       cancelled = true;
     };
@@ -190,6 +207,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
     setRequiredDefaults({});
     setSelectedOptionalIds(new Set());
     setOptionalDefaults({});
+    setDefaultAssignee(null);
   }
 
   function handleIssueTypeChange(typeName: string) {
@@ -268,6 +286,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
       issueType: issueTypeName,
       hasParent,
       parentKey: hasParent ? parentKey.trim() : undefined,
+      defaultAssignee,
       compression: { quality: 0.85, maxWidth: 1920 },
       requiredFieldDefaults: requiredDefaults,
       optionalFields: [...selectedOptionalIds].map((fieldId) => ({
@@ -481,7 +500,19 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
         </div>
       )}
 
-      {/* Step 3 — Issue type */}
+      {/* Step 3 — Default assignee */}
+      {projectKey && (
+        <div className="flex flex-col gap-1">
+          <label style={labelStyle}>Default assignee</label>
+          <AssigneeSelect
+            projectKey={projectKey}
+            value={defaultAssignee}
+            onChange={setDefaultAssignee}
+          />
+        </div>
+      )}
+
+      {/* Step 4 — Issue type */}
       {projectKey && (
         <div className="flex flex-col gap-1">
           <label style={labelStyle}>Issue type *</label>
@@ -512,7 +543,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
         </div>
       )}
 
-      {/* Step 4 — Required field defaults */}
+      {/* Step 5 — Required field defaults */}
       {selectedIssueType && requiredFields.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="text-xs font-semibold" style={{ color: 'var(--chrome-text-secondary)' }}>
@@ -535,7 +566,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
         </div>
       )}
 
-      {/* Step 5 — Optional fields */}
+      {/* Step 6 — Optional fields */}
       {selectedIssueType && optionalFields.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="text-xs font-semibold" style={{ color: 'var(--chrome-text-secondary)' }}>

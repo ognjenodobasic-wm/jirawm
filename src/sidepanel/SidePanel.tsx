@@ -4,6 +4,7 @@ import '../styles/globals.css';
 import SingleMode from './SingleMode';
 import BulkMode from './BulkMode';
 import Settings from './Settings';
+import Help from './Help';
 import WorkflowManager from './WorkflowManager';
 import type { AuthConfig, Workflow, PanelMode } from '../types';
 import { getLocal, getSync } from '../lib/storage';
@@ -12,6 +13,10 @@ const TABS: { id: PanelMode; label: string }[] = [
   { id: 'single', label: 'Single Task' },
   { id: 'bulk', label: 'Bulk Upload' },
 ];
+
+function isTabMode(mode: PanelMode): mode is 'single' | 'bulk' {
+  return mode === 'single' || mode === 'bulk';
+}
 
 function SidePanel() {
   const [activeTab, setActiveTab] = useState<PanelMode>('single');
@@ -98,7 +103,7 @@ function SidePanel() {
   }
 
   const hasWorkflows = workflows.length > 0;
-  const showChrome = !showSettings && !showWorkflowManager;
+  const showChrome = !showSettings && !showWorkflowManager && isTabMode(activeTab);
 
   return (
     <div
@@ -135,28 +140,47 @@ function SidePanel() {
           );
         })}
 
-        {/* Settings — right-aligned */}
-        <button
-          onClick={() => { setShowSettings((s) => !s); setShowWorkflowManager(false); }}
-          aria-label="Settings"
-          style={{
-            border: 'none',
-            borderBottom: showSettings
-              ? '2px solid var(--chrome-blue)'
-              : '2px solid transparent',
-            background: 'none',
-            color: showSettings ? 'var(--chrome-blue)' : 'var(--chrome-text-secondary)',
-            cursor: 'pointer',
-            fontSize: '12px',
-            padding: '8px 0',
-            marginLeft: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '3px',
-          }}
-        >
-          <span style={{ fontSize: '18px', lineHeight: 1 }}>⚙</span> Settings
-        </button>
+        {/* Help + Settings — right-aligned */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => { setActiveTab('help'); setShowSettings(false); setShowWorkflowManager(false); }}
+            style={{
+              border: 'none',
+              borderBottom: activeTab === 'help'
+                ? '2px solid var(--chrome-blue)'
+                : '2px solid transparent',
+              background: 'none',
+              color: activeTab === 'help'
+                ? 'var(--chrome-blue)'
+                : 'var(--chrome-text-secondary)',
+              cursor: 'pointer',
+              fontSize: '12px',
+              padding: '8px 0',
+            }}
+          >
+            Help
+          </button>
+          <button
+            onClick={() => { setShowSettings((s) => !s); setShowWorkflowManager(false); }}
+            aria-label="Settings"
+            style={{
+              border: 'none',
+              borderBottom: showSettings
+                ? '2px solid var(--chrome-blue)'
+                : '2px solid transparent',
+              background: 'none',
+              color: showSettings ? 'var(--chrome-blue)' : 'var(--chrome-text-secondary)',
+              cursor: 'pointer',
+              fontSize: '12px',
+              padding: '8px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+            }}
+          >
+            <span style={{ fontSize: '18px', lineHeight: 1 }}>⚙</span>
+          </button>
+        </div>
       </div>
 
       {/* ── Workflow selector — sticky, always visible ── */}
@@ -270,6 +294,8 @@ function SidePanel() {
           />
         ) : showSettings ? (
           <Settings onBack={handleBack} />
+        ) : activeTab === 'help' ? (
+          <Help />
         ) : activeTab === 'single' ? (
           <SingleMode
             workflows={workflows}
@@ -281,6 +307,7 @@ function SidePanel() {
           <BulkMode
             isAuthed={isAuthed}
             selectedWorkflowId={selectedWorkflowId}
+            workflows={workflows}
             domain={domain}
             onOpenSettings={() => setShowSettings(true)}
           />

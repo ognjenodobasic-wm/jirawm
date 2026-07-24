@@ -4,6 +4,7 @@ import { getLocal } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot } from '../lib/jira';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
+import AssigneeSelect from './components/AssigneeSelect';
 
 interface HistoryEntry {
   key: string;
@@ -49,6 +50,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [summary, setSummary] = useState('');
+  const [assignee, setAssignee] = useState<string | null>(null);
   const [description, setDescription] = useState('');
 
   const [domain, setDomain] = useState('');
@@ -74,6 +76,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     const wf = workflows.find((w) => w.id === selectedWorkflowId) ?? null;
     setActiveWorkflow(wf);
     setSummary('');
+    setAssignee(wf?.defaultAssignee ?? null);
     setDescription(wf?.requiredFieldDefaults.description ?? '');
     setScreenshots([]);
     setSelectedId(null);
@@ -85,6 +88,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
 
   function resetForm() {
     setSummary('');
+    setAssignee(activeWorkflow?.defaultAssignee ?? null);
     setDescription(activeWorkflow?.requiredFieldDefaults.description ?? '');
     setScreenshots([]);
     setSelectedId(null);
@@ -239,6 +243,10 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         ...buildWorkflowFields(activeWorkflow),
         description: description.trim(),
       };
+
+      if (assignee) {
+        fields.assignee = { accountId: assignee };
+      }
 
       const issue = await createIssue({
         summary: summary.trim(),
@@ -537,6 +545,16 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
             disabled={isLoading}
             style={inputStyle}
             placeholder="Subtask summary"
+          />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Assignee</label>
+          <AssigneeSelect
+            projectKey={activeWorkflow?.projectKey ?? ''}
+            value={assignee}
+            onChange={setAssignee}
+            disabled={isLoading}
           />
         </div>
 

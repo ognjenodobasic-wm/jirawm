@@ -21,6 +21,7 @@ export interface Workflow {
   issueType: string; // from dropdown based on project
   hasParent: boolean; // checkbox
   parentKey?: string; // e.g. "AT-45" — required if hasParent=true
+  defaultAssignee?: string | null; // accountId or null = Unassigned
   compression: {
     quality: number; // default 0.85
     maxWidth: number; // default 1920
@@ -28,6 +29,19 @@ export interface Workflow {
   requiredFieldDefaults: Record<string, string>;
   optionalFields: { fieldId: string; defaultValue?: string }[];
   fieldMeta: JiraField[]; // cached from createmeta
+}
+
+export interface JiraUser {
+  accountId: string;
+  displayName: string;
+  avatarUrls: { '24x24': string };
+  active: boolean;
+}
+
+export interface AssignableUserCache {
+  projectKey: string;
+  users: JiraUser[];
+  fetchedAt: string;
 }
 
 export interface IssueTypeMeta {
@@ -40,6 +54,7 @@ export interface BulkTask {
   id: string;
   summary: string;
   description?: string;
+  assignee?: string;
   screenshotBase64: string;
   status: 'waiting' | 'creating' | 'uploading' | 'done' | 'failed';
   issueKey?: string;
@@ -63,4 +78,4 @@ export interface ScreenshotItem {
   label?: string;
 }
 
-export type PanelMode = 'single' | 'bulk';
+export type PanelMode = 'single' | 'bulk' | 'help';

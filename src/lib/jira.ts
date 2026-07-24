@@ -1,4 +1,4 @@
-import type { AuthConfig, IssueTypeMeta, JiraField } from '../types';
+import type { AuthConfig, IssueTypeMeta, JiraField, JiraUser } from '../types';
 import { getLocal, setLocal } from './storage';
 
 let _auth: AuthConfig | null = null;
@@ -104,6 +104,26 @@ export async function searchIssues(
  * Fetch all issue types (with their fields) for a project.
  * Result is cached in chrome.storage.local under `jirawm_createmeta_{projectKey}`.
  */
+export async function getAssignableUsers(projectKey: string): Promise<JiraUser[]> {
+  const data = (await apiFetch(
+    `/user/assignable/multiProjectSearch?projectKeys=${encodeURIComponent(projectKey)}&maxResults=50`,
+  )) as Array<{
+    accountId: string;
+    displayName: string;
+    avatarUrls?: { '24x24'?: string };
+    active: boolean;
+  }>;
+
+  return data
+    .filter((u) => u.active)
+    .map((u) => ({
+      accountId: u.accountId,
+      displayName: u.displayName,
+      avatarUrls: { '24x24': u.avatarUrls?.['24x24'] ?? '' },
+      active: u.active,
+    }));
+}
+
 export async function getIssueTypes(projectKey: string): Promise<IssueTypeMeta[]> {
   const cacheKey = `jirawm_createmeta_${projectKey}`;
   const cached = await getLocal<IssueTypeMeta[]>(cacheKey);

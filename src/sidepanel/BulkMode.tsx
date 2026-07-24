@@ -1,7 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import type { BulkTask } from '../types';
+import type { BulkTask, Workflow } from '../types';
 import { getLocal, setLocal } from '../lib/storage';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
+import AssigneeSelect from './components/AssigneeSelect';
 
 type BulkRowStatus = 'waiting' | 'creating' | 'uploading' | 'done' | 'failed';
 
@@ -11,6 +12,7 @@ interface BulkRow {
   preview: string;
   summary: string;
   description: string;
+  assignee: string | null;
   status: BulkRowStatus;
   issueKey?: string;
   error?: string;
@@ -19,6 +21,7 @@ interface BulkRow {
 interface BulkModeProps {
   isAuthed: boolean;
   selectedWorkflowId: string;
+  workflows: Workflow[];
   domain: string;
   onOpenSettings: () => void;
 }
@@ -34,7 +37,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenSettings }: BulkModeProps) {
+export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, domain, onOpenSettings }: BulkModeProps) {
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -42,9 +45,13 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
   const [lightboxPreview, setLightboxPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastAppliedWorkflowIdRef = useRef<string>('');
+
+  const activeWorkflow = workflows.find((w) => w.id === selectedWorkflowId) ?? null;
 
   const addFiles = useCallback((files: FileList | null) => {
     if (!files) return;
+    const defaultAssignee = activeWorkflow?.defaultAssignee ?? null;
     const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
     const newRows: BulkRow[] = imageFiles.map((file) => ({
       id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -52,10 +59,32 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
       preview: URL.createObjectURL(file),
       summary: '',
       description: '',
+      assignee: defaultAssignee,
       status: 'waiting',
     }));
     setRows((prev) => [...prev, ...newRows]);
-  }, []);
+  }, [activeWorkflow?.defaultAssignee]);
+
+  // Apply workflow default assignee to existing rows only on first workflow selection.
+  useEffect(() => {
+    if (!selectedWorkflowId) {
+      lastAppliedWorkflowIdRef.current = '';
+      return;
+    }
+    const wf = workflows.find((w) => w.id === selectedWorkflowId);
+    if (!wf) return;
+
+    if (lastAppliedWorkflowIdRef.current === '') {
+      // First time a workflow is selected: propagate default to all existing rows.
+      setRows((prev) =>
+        prev.map((row) => ({
+          ...row,
+          assignee: wf.defaultAssignee ?? null,
+        })),
+      );
+    }
+    lastAppliedWorkflowIdRef.current = selectedWorkflowId;
+  }, [selectedWorkflowId, workflows]);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -89,6 +118,10 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, description } : row)));
   }
 
+  function updateAssignee(id: string, assignee: string | null) {
+    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, assignee } : row)));
+  }
+
   function removeRow(id: string) {
     setRows((prev) => {
       const row = prev.find((r) => r.id === id);
@@ -115,6 +148,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
         id: row.id,
         summary: row.summary || row.file.name,
         description: row.description,
+        assignee: row.assignee ?? undefined,
         screenshotBase64: base64,
         status: 'waiting',
       });
@@ -347,6 +381,16 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, domain, onOpenS
                   disabled={isProcessing}
                   rows={3}
                   style={{ ...inputStyle, resize: 'vertical' }}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Assignee</label>
+                <AssigneeSelect
+                  projectKey={activeWorkflow?.projectKey ?? ''}
+                  value={row.assignee}
+                  onChange={(value) => updateAssignee(row.id, value)}
+                  disabled={isProcessing}
                 />
               </div>
 
