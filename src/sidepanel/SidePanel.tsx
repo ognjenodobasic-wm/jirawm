@@ -7,7 +7,8 @@ import Settings from './Settings';
 import Help from './Help';
 import WorkflowManager from './WorkflowManager';
 import type { AuthConfig, Workflow, PanelMode } from '../types';
-import { getLocal, getSync } from '../lib/storage';
+import { getLocal } from '../lib/storage';
+import { removeLegacySyncWorkflows } from '../lib/workflows';
 
 const TABS: { id: PanelMode; label: string }[] = [
   { id: 'single', label: 'Single Task' },
@@ -29,7 +30,7 @@ function SidePanel() {
   const [domain, setDomain] = useState('');
 
   function loadWorkflows(preferId?: string) {
-    getSync<Workflow[]>('jirawm_workflows').then((wf) => {
+    getLocal<Workflow[]>('jirawm_workflows').then((wf) => {
       const list = wf ?? [];
       setWorkflows(list);
       if (preferId && list.some((w) => w.id === preferId)) {
@@ -42,6 +43,7 @@ function SidePanel() {
 
   useEffect(() => {
     loadWorkflows();
+    removeLegacySyncWorkflows();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Verify stored auth on mount

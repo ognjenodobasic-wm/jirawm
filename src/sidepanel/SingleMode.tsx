@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { AuthConfig, Workflow, CompressionSettings, ScreenshotItem } from '../types';
 import { getLocal } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
-import { setAuth, createIssue, attachScreenshot } from '../lib/jira';
+import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/jira';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 import AssigneeSelect from './components/AssigneeSelect';
 
@@ -248,13 +248,17 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         fields.assignee = { accountId: assignee };
       }
 
+      const issueTypes = await getIssueTypes(activeWorkflow.projectKey);
+      const issueTypeMeta = issueTypes.find((it) => it.name === activeWorkflow.issueType);
+      const fieldMeta = issueTypeMeta?.fields ?? [];
+
       const issue = await createIssue({
         summary: summary.trim(),
         projectKey: activeWorkflow.projectKey,
         issueType: activeWorkflow.issueType,
         parentKey: activeWorkflow.hasParent ? activeWorkflow.parentKey : undefined,
         fields,
-        fieldMeta: activeWorkflow.fieldMeta,
+        fieldMeta,
       });
 
       let uploadedCount = 0;

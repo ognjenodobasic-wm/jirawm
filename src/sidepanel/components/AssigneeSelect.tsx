@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { JiraUser } from '../../types';
-import { getSync } from '../../lib/storage';
+import { getLocal } from '../../lib/storage';
 
 interface AssigneeSelectProps {
   projectKey: string;
@@ -30,7 +30,7 @@ export default function AssigneeSelect({ projectKey, value, onChange, disabled }
     setLoading(true);
     setError(null);
 
-    getSync<JiraUser[]>(cacheKey(projectKey))
+    getLocal<JiraUser[]>(cacheKey(projectKey))
       .then((cached) => {
         if (cancelled) return;
         if (cached && cached.length > 0) {

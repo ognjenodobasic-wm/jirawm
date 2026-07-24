@@ -1,7 +1,7 @@
 import type { BulkTask, Workflow, AuthConfig } from '../types';
-import { getLocal, getSync, setLocal } from '../lib/storage';
+import { getLocal, setLocal } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
-import { setAuth, createIssue, attachScreenshot } from '../lib/jira';
+import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/jira';
 
 const BULK_PROGRESS_KEY = 'jirawm_bulk_progress';
 
@@ -54,7 +54,7 @@ async function saveProgress(tasks: BulkTask[]): Promise<void> {
 async function processBulkTasks(tasks: BulkTask[], workflowId: string): Promise<void> {
   const [auth, workflows] = await Promise.all([
     getLocal<AuthConfig>('auth'),
-    getSync<Workflow[]>('jirawm_workflows'),
+    getLocal<Workflow[]>('jirawm_workflows'),
   ]);
 
   if (!auth) throw new Error('Jira auth not configured.');
@@ -97,13 +97,17 @@ async function processBulkTasks(tasks: BulkTask[], workflowId: string): Promise<
         fields.assignee = { accountId: task.assignee };
       }
 
+      const issueTypes = await getIssueTypes(workflow.projectKey);
+      const issueTypeMeta = issueTypes.find((it) => it.name === workflow.issueType);
+      const fieldMeta = issueTypeMeta?.fields ?? [];
+
       const issue = await createIssue({
         summary: task.summary,
         projectKey: workflow.projectKey,
         issueType: workflow.issueType,
         parentKey: workflow.hasParent ? workflow.parentKey : undefined,
         fields,
-        fieldMeta: workflow.fieldMeta,
+        fieldMeta,
       });
 
       task.status = 'uploading';

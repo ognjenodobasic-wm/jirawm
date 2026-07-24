@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { AuthConfig, Workflow, IssueTypeMeta, JiraField, JiraUser } from '../types';
-import { getLocal, setSync } from '../lib/storage';
+import { getLocal, setLocal } from '../lib/storage';
 import { saveWorkflow, deleteWorkflow } from '../lib/workflows';
 import { setAuth, getProjects, getIssueTypes, searchIssues, getAssignableUsers } from '../lib/jira';
 import AssigneeSelect from './components/AssigneeSelect';
@@ -171,7 +171,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
     getAssignableUsers(projectKey)
       .then((users) => {
         if (!cancelled) {
-          void setSync<JiraUser[]>(`assignableUsers_${projectKey}`, users);
+          void setLocal<JiraUser[]>(`assignableUsers_${projectKey}`, users);
         }
       })
       .catch((err) => {

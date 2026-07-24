@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { AuthConfig, Workflow, ExportSnapshot, CompressionSettings } from '../types';
-import { getLocal, setLocal, getSync, setSync } from '../lib/storage';
+import { getLocal, setLocal } from '../lib/storage';
 import { setAuth, testConnection } from '../lib/jira';
 import { WORKFLOWS_KEY, SNAPSHOT_KEY } from '../lib/workflows';
 
@@ -66,7 +66,7 @@ export default function Settings({ onBack }: SettingsProps) {
     setExportImportMessage(null);
     setExportImportError(null);
     try {
-      const workflows = (await getSync<Workflow[]>(WORKFLOWS_KEY)) ?? [];
+      const workflows = (await getLocal<Workflow[]>(WORKFLOWS_KEY)) ?? [];
       const json = JSON.stringify(workflows, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -107,7 +107,7 @@ export default function Settings({ onBack }: SettingsProps) {
         throw new Error('Invalid workflow file: expected a JSON array.');
       }
 
-      const existing = (await getSync<Workflow[]>(WORKFLOWS_KEY)) ?? [];
+      const existing = (await getLocal<Workflow[]>(WORKFLOWS_KEY)) ?? [];
       const merged = [...existing];
       let newCount = 0;
       let updatedCount = 0;
@@ -127,7 +127,7 @@ export default function Settings({ onBack }: SettingsProps) {
         }
       }
 
-      await setSync(WORKFLOWS_KEY, merged);
+      await setLocal(WORKFLOWS_KEY, merged);
       setExportImportMessage(`Imported ${merged.length} workflows (${newCount} new, ${updatedCount} updated)`);
     } catch (err) {
       setExportImportError(err instanceof Error ? err.message : String(err));

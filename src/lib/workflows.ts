@@ -1,5 +1,5 @@
 import type { Workflow } from '../types';
-import { getSync, setSync } from './storage';
+import { getLocal, setLocal } from './storage';
 
 const WORKFLOWS_KEY = 'jirawm_workflows';
 const SNAPSHOT_KEY = 'jirawm_export_snapshot';
@@ -15,24 +15,34 @@ export function buildWorkflowFields(workflow: Workflow): Record<string, string> 
 }
 
 export async function getWorkflows(): Promise<Workflow[]> {
-  return (await getSync<Workflow[]>(WORKFLOWS_KEY)) ?? [];
+  return (await getLocal<Workflow[]>(WORKFLOWS_KEY)) ?? [];
 }
 
 export async function saveWorkflow(workflow: Workflow): Promise<void> {
   const existing = await getWorkflows();
   const idx = existing.findIndex((w) => w.id === workflow.id);
+
+  // Strip fieldMeta before persistence — it is cached separately via createmeta.
+  const workflowToSave = { ...workflow };
+  delete workflowToSave.fieldMeta;
+
   if (idx >= 0) {
-    existing[idx] = workflow;
+    existing[idx] = workflowToSave;
   } else {
-    existing.push(workflow);
+    existing.push(workflowToSave);
   }
-  await setSync(WORKFLOWS_KEY, existing);
+  await setLocal(WORKFLOWS_KEY, existing);
 }
 
 export async function deleteWorkflow(id: string): Promise<void> {
   const existing = await getWorkflows();
-  await setSync(
+  await setLocal(
     WORKFLOWS_KEY,
     existing.filter((w) => w.id !== id),
   );
+}
+
+/** One-time cleanup: remove workflows from chrome.storage.sync to free quota. */
+export function removeLegacySyncWorkflows(): void {
+  void chrome.storage.sync.remove(WORKFLOWS_KEY);
 }

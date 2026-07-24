@@ -28,7 +28,7 @@ export interface Workflow {
   };
   requiredFieldDefaults: Record<string, string>;
   optionalFields: { fieldId: string; defaultValue?: string }[];
-  fieldMeta: JiraField[]; // cached from createmeta
+  fieldMeta?: JiraField[]; // cached from createmeta — not persisted with workflow
 }
 
 export interface JiraUser {
