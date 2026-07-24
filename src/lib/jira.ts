@@ -80,6 +80,7 @@ export async function getProjects(): Promise<Array<{ id: string; key: string; na
 export async function searchIssues(
   query: string,
   projectId: string,
+  projectKey: string,
 ): Promise<Array<{ key: string; summary: string }>> {
   const searchQuery = query.toLowerCase();
   const pickerData = (await apiFetch(
@@ -101,9 +102,14 @@ export async function searchIssues(
   }
 
   if (query && results.length < 3) {
-    const jqlData = (await apiFetch(
-      `/search?jql=project%3D"${projectId}"%20AND%20summary~"${encodeURIComponent(query)}"%20AND%20statusCategory%20!%3D%20Done&maxResults=20&fields=summary,key`,
-    )) as { issues: Array<{ key: string; fields: { summary: string } }> };
+    const jqlData = (await apiFetch('/search/jql', {
+      method: 'POST',
+      body: JSON.stringify({
+        jql: `project = "${projectKey}" AND summary ~ "${query}" AND statusCategory != Done ORDER BY created DESC`,
+        maxResults: 20,
+        fields: ['summary', 'key'],
+      }),
+    })) as { issues: Array<{ key: string; fields: { summary: string } }> };
 
     const seen = new Set(results.map((r) => r.key));
     for (const issue of jqlData.issues ?? []) {

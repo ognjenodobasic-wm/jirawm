@@ -263,7 +263,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
 
       setParentSearchState({ status: 'loading' });
       try {
-        const issues = await searchIssues(value.trim(), projectId);
+        const issues = await searchIssues(value.trim(), projectId, projectKey);
         setParentSearchState({ status: 'ready', issues });
       } catch (err) {
         setParentSearchState({
