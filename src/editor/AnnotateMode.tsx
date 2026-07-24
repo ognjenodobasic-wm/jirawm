@@ -26,6 +26,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
   const [markerCounter, setMarkerCounter] = useState(1);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [isDone, setIsDone] = useState(false);
 
   const historyRef = useRef<string[]>([]);
   const historyCursorRef = useRef(-1);
@@ -434,8 +435,10 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
   }, [activeTool, undo, redo, deleteSelected]);
 
   const handleDone = () => {
+    if (isDone) return;
     const canvas = canvasInstanceRef.current;
     if (!canvas) return;
+    setIsDone(true);
     requestAnimationFrame(() => {
       const result = canvas.toDataURL({ format: 'jpeg', quality: 0.9, multiplier: 1 });
       onDone(result);
@@ -612,18 +615,20 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
           </button>
           <button
             onClick={handleDone}
+            disabled={isDone}
             style={{
               padding: '6px 14px',
               border: 'none',
               borderRadius: '4px',
-              background: 'var(--chrome-blue)',
-              color: '#fff',
-              cursor: 'pointer',
+              background: isDone ? 'var(--chrome-border)' : 'var(--chrome-blue)',
+              color: isDone ? 'var(--chrome-text-secondary)' : '#fff',
+              cursor: isDone ? 'not-allowed' : 'pointer',
               fontSize: '12px',
               fontWeight: 500,
+              opacity: isDone ? 0.7 : 1,
             }}
           >
-            Done
+            {isDone ? 'Saving…' : 'Done'}
           </button>
         </div>
       </div>

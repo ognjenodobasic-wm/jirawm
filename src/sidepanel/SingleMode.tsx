@@ -71,6 +71,11 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   const [globalCompression, setGlobalCompression] = useState<CompressionSettings>({ quality: 0.85, maxWidth: 1920 });
   const [editorWindowId, setEditorWindowId] = useState<number | null>(null);
 
+  // Cleanup stale editor data from previous sessions
+  useEffect(() => {
+    chrome.storage.local.remove(['pendingEditor', 'annotationResult']);
+  }, []);
+
   useEffect(() => {
     getLocal<CompressionSettings>('jirawm_compression').then((c) => {
       if (c) setGlobalCompression(c);
@@ -94,6 +99,15 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     };
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
+  }, []);
+
+  // Clear stale editorWindowId when user closes the popup manually
+  useEffect(() => {
+    function handleWindowRemoved(windowId: number) {
+      setEditorWindowId((prev) => (prev === windowId ? null : prev));
+    }
+    chrome.windows.onRemoved.addListener(handleWindowRemoved);
+    return () => chrome.windows.onRemoved.removeListener(handleWindowRemoved);
   }, []);
 
   useEffect(() => {
@@ -468,24 +482,22 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
                       style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2, pointerEvents: 'none' }}
                     />
                     {item.annotated && (
-                      <span
+                      <div
                         style={{
                           position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: 16,
-                          height: 16,
-                          background: 'var(--chrome-blue)',
-                          color: '#fff',
-                          fontSize: 9,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: '0 0 4px 0',
+                          top: '4px',
+                          right: '4px',
+                          background: '#1a73e8',
+                          color: '#ffffff',
+                          fontSize: '10px',
+                          padding: '1px 4px',
+                          borderRadius: '3px',
+                          lineHeight: '14px',
+                          pointerEvents: 'none',
                         }}
                       >
                         ✎
-                      </span>
+                      </div>
                     )}
                     <button
                       type="button"
