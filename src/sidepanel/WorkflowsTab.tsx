@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Workflow } from '../types';
-import { setLocal } from '../lib/storage';
+import { getLocal, setLocal } from '../lib/storage';
 import { getWorkflows, deleteWorkflow, WORKFLOWS_KEY } from '../lib/workflows';
+import type { AuthConfig } from '../types';
 
 interface WorkflowsTabProps {
   workflows: Workflow[];
@@ -9,6 +10,10 @@ interface WorkflowsTabProps {
   onNewWorkflow: () => void;
   onEditWorkflow: (workflow: Workflow) => void;
   onWorkflowsChanged: () => void;
+}
+
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : text.slice(0, max) + '...';
 }
 
 export default function WorkflowsTab({
@@ -23,6 +28,7 @@ export default function WorkflowsTab({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [parentSummaries, setParentSummaries] = useState<Record<string, string>>({});
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -35,6 +41,48 @@ export default function WorkflowsTab({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [openMenuId]);
+
+  // Fetch parent summaries for workflows with hasParent=true
+  useEffect(() => {
+    const parentWorkflows = workflows.filter((w) => w.hasParent && w.parentKey);
+    if (parentWorkflows.length === 0) return;
+
+    let cancelled = false;
+
+    async function fetchParentSummaries() {
+      const auth = await getLocal<AuthConfig>('auth');
+      if (!auth || cancelled) return;
+
+      for (const w of parentWorkflows) {
+        if (cancelled) break;
+        if (!w.parentKey) continue;
+        if (parentSummaries[w.parentKey]) continue;
+
+        try {
+          const res = await fetch(
+            `https://${auth.domain}.atlassian.net/rest/api/3/issue/${encodeURIComponent(w.parentKey)}?fields=summary`,
+            {
+              headers: {
+                Authorization: `Basic ${btoa(`${auth.email}:${auth.apiToken}`)}`,
+                'Content-Type': 'application/json',
+              },
+            },
+          );
+          if (!res.ok) continue;
+          const data = (await res.json()) as { fields?: { summary?: string } };
+          const summary = data.fields?.summary ?? '';
+          if (!cancelled && summary) {
+            setParentSummaries((prev) => ({ ...prev, [w.parentKey!]: truncate(summary, 30) }));
+          }
+        } catch {
+          // Silently ignore — card will show key only
+        }
+      }
+    }
+
+    void fetchParentSummaries();
+    return () => { cancelled = true; };
+  }, [workflows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleExport() {
     try {
@@ -102,10 +150,6 @@ export default function WorkflowsTab({
     } catch (err) {
       setImportError(err instanceof Error ? err.message : String(err));
     }
-  }
-
-  function requiredCount(w: Workflow): number {
-    return Object.keys(w.requiredFieldDefaults).length;
   }
 
   return (
@@ -295,11 +339,15 @@ export default function WorkflowsTab({
                 className="mt-2 text-xs"
                 style={{ color: 'var(--chrome-text-secondary)', lineHeight: 1.6 }}
               >
-                <div>Project: {w.projectName} — {w.issueType}</div>
-                <div>Parent: {w.hasParent && w.parentKey ? w.parentKey : 'Root project'}</div>
-                <div>
-                  Required: {requiredCount(w)} · Optional: {w.optionalFields.length}
-                </div>
+                <div>Project: {w.projectName}</div>
+                {w.hasParent && w.parentKey && (
+                  <div>
+                    Parent: {w.parentKey}
+                    {parentSummaries[w.parentKey] ? ` — ${parentSummaries[w.parentKey]}` : ''}
+                  </div>
+                )}
+                <div>Creates: {w.issueType} · Auto-numbered</div>
+                <div>Assignee: {w.defaultAssigneeName ?? 'Unassigned'}</div>
               </div>
 
               {confirmDeleteId === w.id && (
@@ -311,7 +359,7 @@ export default function WorkflowsTab({
                   }}
                 >
                   <p style={{ color: 'var(--chrome-text-primary)', margin: '0 0 8px 0' }}>
-                    Delete workflow “{w.name}”?
+                    Delete workflow "{w.name}"?
                   </p>
                   <div className="flex gap-2">
                     <button

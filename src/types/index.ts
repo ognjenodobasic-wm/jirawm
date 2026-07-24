@@ -22,6 +22,7 @@ export interface Workflow {
   hasParent: boolean; // checkbox
   parentKey?: string; // e.g. "AT-45" — required if hasParent=true
   defaultAssignee?: string | null; // accountId or null = Unassigned
+  defaultAssigneeName?: string; // display name for display purposes
   compression: {
     quality: number; // default 0.85
     maxWidth: number; // default 1920

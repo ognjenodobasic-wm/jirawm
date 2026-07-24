@@ -89,6 +89,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
   const [selectedOptionalIds, setSelectedOptionalIds] = useState<Set<string>>(new Set());
   const [optionalDefaults, setOptionalDefaults] = useState<Record<string, string>>({});
   const [defaultAssignee, setDefaultAssignee] = useState<string | null>(null);
+  const assignableUsersRef = useRef<JiraUser[]>([]);
 
   const [name, setName] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -169,12 +170,13 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
         }
       });
 
-    getAssignableUsers(projectKey)
-      .then((users) => {
-        if (!cancelled) {
-          void setLocal<JiraUser[]>(`assignableUsers_${projectKey}`, users);
-        }
-      })
+      getAssignableUsers(projectKey)
+        .then((users) => {
+          if (!cancelled) {
+            assignableUsersRef.current = users;
+            void setLocal<JiraUser[]>(`assignableUsers_${projectKey}`, users);
+          }
+        })
       .catch((err) => {
         if (!cancelled) {
           console.error('Failed to load assignable users:', err);
@@ -288,6 +290,9 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
       hasParent,
       parentKey: hasParent ? parentKey.trim() : undefined,
       defaultAssignee,
+      defaultAssigneeName: defaultAssignee
+        ? assignableUsersRef.current.find((u) => u.accountId === defaultAssignee)?.displayName
+        : undefined,
       compression: { quality: 0.85, maxWidth: 1920 },
       requiredFieldDefaults: requiredDefaults,
       optionalFields: [...selectedOptionalIds].map((fieldId) => ({
