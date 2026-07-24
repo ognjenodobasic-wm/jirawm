@@ -11,12 +11,14 @@
   },
   "dependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.33",
+    "fabric": "^7.4.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@types/chrome": "^0.2.2",
+    "@types/fabric": "^5.3.11",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

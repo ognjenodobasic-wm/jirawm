@@ -9,7 +9,7 @@ export default function AnnotationEditor() {
   const [mode, setMode] = useState<EditorMode | null>(null);
   const [pending, setPending] = useState<PendingEditor | null>(null);
   const [loading, setLoading] = useState(true);
-  const { readPendingEditor } = useEditorTransfer();
+  const { readPendingEditor, writeAnnotationResult, cleanup } = useEditorTransfer();
   useWindowBounds();
 
   useEffect(() => {
@@ -64,8 +64,29 @@ export default function AnnotationEditor() {
     return <PreviewMode dataUrl={pending.dataUrl} thumbnailIndex={pending.thumbnailIndex} />;
   }
 
+  async function handleDone(resultDataUrl: string) {
+    if (!pending) return;
+    await writeAnnotationResult({ dataUrl: resultDataUrl, thumbnailIndex: pending.thumbnailIndex });
+    chrome.runtime.sendMessage({ type: 'ANNOTATION_DONE' });
+    const win = await chrome.windows.getCurrent();
+    chrome.windows.remove(win.id!);
+  }
+
+  async function handleCancel() {
+    await cleanup();
+    const win = await chrome.windows.getCurrent();
+    chrome.windows.remove(win.id!);
+  }
+
   if (mode === 'annotate') {
-    return <AnnotateMode dataUrl={pending.dataUrl} thumbnailIndex={pending.thumbnailIndex} />;
+    return (
+      <AnnotateMode
+        dataUrl={pending.dataUrl}
+        thumbnailIndex={pending.thumbnailIndex}
+        onDone={handleDone}
+        onCancel={handleCancel}
+      />
+    );
   }
 
   return null;
