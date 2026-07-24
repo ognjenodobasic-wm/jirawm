@@ -1,5 +1,20 @@
 # JiraWM — Changelog
 
+## [2.1.0] — Juli 2026
+### Popravljeno
+- Lista projekata prikazuje samo aktivne projekte, sortirana abecedno
+- Pretraga parent taska prepisana — direktan lookup po key-u, wildcard JQL, svi izvori uvek upitani sa izolacijom grešaka
+- Uklonjen client-side filter koji je odbacivao validne server rezultate
+- Migracija sa deprecated GET /search na POST /search/jql
+- Assignee dropdown sada učitava korisnike odmah po izboru projekta
+- Save dugme vraćeno i uvek vidljivo u formi za workflow
+- Polje za ime workflowa premješteno na vrh forme
+- Issue type pozicioniran iznad default assignee
+
+### Novo
+- Pretraživi assignee combobox zamjenjuje dugu native listu
+- Inline "Connect to Jira" link u empty state-u, vodi direktno na Settings
+
 ## [2.0.0] — Juli 2026
 ### Novo
 - Annotation editor — popup prozor sa Fabric.js canvas editorom
