@@ -9,22 +9,29 @@ export function ConnectJiraPrompt({ onOpenSettings }: Props) {
         padding: 24,
         textAlign: 'center',
         color: 'var(--chrome-text-secondary)',
+        fontSize: '13px',
       }}
     >
-      <p style={{ marginBottom: 12 }}>Connect Jira in Settings to get started</p>
-      <button
-        onClick={onOpenSettings}
-        style={{
-          background: 'var(--chrome-blue)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 4,
-          padding: '8px 16px',
-          cursor: 'pointer',
-        }}
-      >
-        Open Settings
-      </button>
+      <p>
+        Jira is not connected.{' '}
+        <button
+          onClick={onOpenSettings}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--chrome-blue)',
+            cursor: 'pointer',
+            fontSize: 'inherit',
+            textDecoration: 'none',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.textDecoration = 'underline'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.textDecoration = 'none'; }}
+        >
+          Connect to Jira
+        </button>{' '}
+        to get started.
+      </p>
     </div>
   );
 }
