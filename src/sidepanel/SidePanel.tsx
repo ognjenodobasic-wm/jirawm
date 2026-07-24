@@ -108,6 +108,7 @@ function SidePanel() {
 
   const hasWorkflows = workflows.length > 0;
   const showChrome = !showSettings && !showWorkflowManager && isTabMode(activeTab);
+  const showWorkflowSelector = showChrome && (activeTab === 'single' || activeTab === 'bulk');
 
   return (
     <div
@@ -187,8 +188,8 @@ function SidePanel() {
         </div>
       </div>
 
-      {/* ── Workflow selector — sticky, always visible ── */}
-      {showChrome && (
+      {/* ── Workflow selector — sticky, visible on Single/Bulk only ── */}
+      {showWorkflowSelector && (
         <div
           className="flex items-center gap-2 px-3 py-1.5 shrink-0"
           style={{
