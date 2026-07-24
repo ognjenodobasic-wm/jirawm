@@ -284,30 +284,6 @@ export default function Settings({ onBack }: SettingsProps) {
           </div>
         </div>
 
-        {/* Keyboard shortcut */}
-        <div className="flex flex-col gap-4">
-          <span style={sectionTitleStyle}>Keyboard Shortcut</span>
-          <div className="flex flex-col gap-1">
-            <p className="text-xs" style={{ color: 'var(--chrome-text-primary)' }}>
-              Ctrl+Shift+S (Windows) / Cmd+Shift+S (Mac)
-            </p>
-            <button
-              onClick={() => chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })}
-              className="text-xs self-start"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--chrome-blue)',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                padding: 0,
-              }}
-            >
-              Change shortcut
-            </button>
-          </div>
-        </div>
-
       </div>
     </div>
   );
