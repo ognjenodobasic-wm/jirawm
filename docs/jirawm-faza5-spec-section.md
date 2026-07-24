@@ -208,24 +208,24 @@ public/
 
 ### 5.9 Checklist Faze 5
 
-- [ ] `public/editor.html` + Vite entry za editor kontekst
-- [ ] `useWindowBounds.ts` — čitanje/čuvanje dimenzija prozora (debounce 500ms)
-- [ ] `useEditorTransfer.ts` — storage protokol (write pendingEditor, read annotationResult, cleanup)
-- [ ] `chrome.windows.create` integracija u SingleMode — jedan popup istovremeno guard
-- [ ] Preview mode — readonly, fit-to-window, [Annotate] i [Close] dugmad, Escape shortcut
-- [ ] Annotate mode — Fabric.js canvas inicijalizacija sa screenshot-om
-- [ ] Toolbar — Select, Arrow, Rect (outline+fill toggle), Numbered marker, Text
-- [ ] Boje — 5 preset-a, aktivan state vidljiv
-- [ ] Stroke width — 2/3/4px dropdown
-- [ ] Numbered marker auto-increment counter u toolbar-u
-- [ ] Undo/Redo — Fabric.js history
-- [ ] Delete selected — Delete/Backspace + dugme
-- [ ] "Done" — canvas export JPEG 0.9 → storage → sendMessage → zatvori
-- [ ] "Cancel" — zatvori popup, original nepromenjen
-- [ ] Side Panel listener — ANNOTATION_DONE handler, replace thumbnail, cleanup
-- [ ] Anotovani screenshot zamenjuje original u strip-u
-- [ ] ✎ badge na thumbnail koji je anotiran
-- [ ] Manifest permissions update
-- [ ] `npx tsc --noEmit` — 0 grešaka
+- [x] `public/editor.html` + Vite entry za editor kontekst
+- [x] `useWindowBounds.ts` — čitanje/čuvanje dimenzija prozora (debounce 500ms)
+- [x] `useEditorTransfer.ts` — storage protokol (write pendingEditor, read annotationResult, cleanup)
+- [x] `chrome.windows.create` integracija u SingleMode — jedan popup istovremeno guard
+- [x] Preview mode — readonly, fit-to-window, [Annotate] i [Close] dugmad, Escape shortcut
+- [x] Annotate mode — Fabric.js canvas inicijalizacija sa screenshot-om
+- [x] Toolbar — Select, Arrow, Rectangle, Fill, Numbered marker, Text
+- [x] Boje — 5 preset-a, aktivan state vidljiv
+- [x] Stroke width — 2/3/4px dropdown
+- [x] Numbered marker auto-increment counter u toolbar-u
+- [x] Undo/Redo — Fabric.js history
+- [x] Delete selected — Delete/Backspace + dugme
+- [x] "Done" — canvas export JPEG 0.9 → storage → sendMessage → zatvori
+- [x] "Cancel" — zatvori popup, original nepromenjen
+- [x] Side Panel listener — ANNOTATION_DONE handler, replace thumbnail, cleanup
+- [x] Anotovani screenshot zamenjuje original u strip-u
+- [x] "Edit" taster centriran ispod thumbnaila (umesto badge-a — taster je vidljiviji i jasniji)
+- [x] Manifest permissions update
+- [x] `npx tsc --noEmit` — 0 grešaka
 - [ ] `npm run build` — build prolazi
 
