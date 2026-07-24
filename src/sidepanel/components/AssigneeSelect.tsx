@@ -7,18 +7,21 @@ interface AssigneeSelectProps {
   value: string | null;
   onChange: (accountId: string | null) => void;
   disabled?: boolean;
+  liveUsers?: JiraUser[];
 }
 
 function cacheKey(projectKey: string): string {
   return `assignableUsers_${projectKey}`;
 }
 
-export default function AssigneeSelect({ projectKey, value, onChange, disabled }: AssigneeSelectProps) {
+export default function AssigneeSelect({ projectKey, value, onChange, disabled, liveUsers }: AssigneeSelectProps) {
   const [users, setUsers] = useState<JiraUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (liveUsers && liveUsers.length > 0) return;
+
     if (!projectKey) {
       setUsers([]);
       setError(null);
@@ -47,9 +50,10 @@ export default function AssigneeSelect({ projectKey, value, onChange, disabled }
     return () => {
       cancelled = true;
     };
-  }, [projectKey]);
+  }, [projectKey, liveUsers]);
 
-  const sortedUsers = [...users].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const sourceUsers = liveUsers && liveUsers.length > 0 ? liveUsers : users;
+  const sortedUsers = [...sourceUsers].sort((a, b) => a.displayName.localeCompare(b.displayName));
 
   if (error && users.length === 0) {
     return (
