@@ -23,6 +23,7 @@ Internal use only. No server, no database, no OAuth.
 - Vite + @crxjs/vite-plugin
 - Chrome Side Panel API (MV3)
 - Jira Cloud REST API v3
+- Fabric.js v7 za anotacioni editor (v7 API se značajno razlikuje od v5 — vidi docs/jirawm-spec-v1.3.md sekcija 5.8)
 
 ## Build & check
 - Build: `npm run build` → /dist

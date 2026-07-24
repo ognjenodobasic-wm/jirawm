@@ -228,10 +228,12 @@ Readonly prikaz screenshota u popup prozoru.
 
 Fabric.js canvas editor u popup prozoru.
 
+> **Izmena (Juli 2026):** Rect F-toggle zamenjen zasebnim Fill alatom u toolbaru — toggle je bio nevidljiv u UI-ju i korisnik nije imao način da vidi koji je mod aktivan.
+
 #### Toolbar layout (levo → desno)
 
 ```
-[ Select(V) ] | [ Arrow(A) ] [ Rect(R) ] [ Marker(M) ] [ Text(T) ] | [ ● boje ] | [ px▼ ] | [ ↩ ↪ ] [ 🗑 ] || [ Cancel ] [ ✓ Done ]
+[ Select(V) ] | [ Arrow(A) ] [ Rectangle(R) ] [ Fill(F) ] [ Marker(M) ] [ Text(T) ] | [ ● boje ] | [ px▼ ] | [ ↩ ↪ ] [ 🗑 ] || [ Cancel ] [ ✓ Done ]
 ```
 
 #### Alati
@@ -240,7 +242,8 @@ Fabric.js canvas editor u popup prozoru.
 |---|---|---|
 | Select / move | V ili Esc | Selektuje, pomera, resajzuje objekte. Klik na prazan prostor = deselect |
 | Strelica | A | Klik+drag crta strelicu sa vrhom. Jednosmerna |
-| Kvadrat | R | Klik+drag crta kvadrat/pravougaonik. Toggle outline↔fill sa F dok je alat aktivan |
+| Rectangle | R | Klik+drag crta pravougaonik sa outline-om. Crta se od ugla na kome je drag počeo, ne od centra. |
+| Fill | F | Isto ponašanje kao Rectangle, ali je pravougaonik ispunjen aktivnom bojom. Pokriva PII redaction use case. |
 | Numbered marker | M | Svaki klik dodaje circle sa auto-increment brojem (1, 2, 3...). Counter vidljiv u toolbar-u pored ikonice |
 | Tekst | T | Klik = text box. Dvostruki klik na postojeći = inline edit |
 
@@ -275,16 +278,19 @@ Aktivna boja se pamti tokom sesije. Primenjuje se na sledeći nacrtani objekat.
 
 ### 5.5 Integracija u SingleMode.tsx
 
+> **Izmena (Juli 2026):** 👁 Preview dugme uklonjeno — klik na sam thumbnail otvara preview. ✎ ikonica zamenjena tekstualnim "Edit" dugmetom radi jasnoće.
+
 **Per-thumbnail akcije** (ispod thumbnail):
 
 ```
-[thumbnail slika]
-  [ 👁 Preview ] [ ✎ Annotate ] [ ✕ ]
+[thumbnail slika]   ← klik otvara popup u preview modu
+   [ Edit ]         ← centrirano ispod thumbnaila, otvara popup u annotate modu
+   [ ✕ ]            ← uklanja thumbnail iz stripa
 ```
 
-- "Preview" → otvara popup u preview modu
-- "Annotate" → otvara popup u annotate modu
-- "✕" → uklanja thumbnail iz stripa (postojeće ponašanje)
+- Klik na thumbnail → otvara popup u preview modu
+- "Edit" → otvara popup u annotate modu
+- "✕" → uklanja thumbnail iz stripa
 - Ako je screenshot već anotiran: thumbnail ima mali indikator (✎ badge na uglu)
 
 **Anotovani screenshot zamenjuje original** u thumbnail strip-u — original se ne čuva zasebno.
@@ -332,6 +338,23 @@ editor.html                 ← entry point za popup prozor (root, isti pattern 
 **Jedan popup istovremeno** — ako korisnik klikne "Annotate" dok je popup već otvoren, ne otvaraj drugi. Čuvaj `editorWindowId` u state-u side panela i proveri pre otvaranja novog. Ako prozor postoji, focusiraj ga (`chrome.windows.update(id, { focused: true })`).
 
 **JPEG quality 0.9 za export** — screenshot prolazi kroz kompresiju drugi put (originalni capture + re-export iz editora), pa koristimo 0.9 umesto globalnog 0.85 da kompenzujemo quality loss.
+
+#### Fabric.js v7 — API razlike u odnosu na v5
+
+Projekat koristi **Fabric.js 7.4.0**. Fabric v6 i v7 uveli su brojna breaking changes u odnosu na v5. Tabela poznatih zamki:
+
+| v5 API | Status | v7 ekvivalent |
+|--------|--------|---------------|
+| `fabric.Image.fromURL(url, callback)` | **BROKEN** | `fabric.FabricImage.fromURL(url)` vraća Promise |
+| `canvas.setBackgroundImage(img, cb)` | **BROKEN** | `canvas.backgroundImage = img` (direktna dodela) |
+| `canvas.getPointer(e)` | **BROKEN** | `canvas.getScenePoint(e)` ili `canvas.getViewportPoint(e)` |
+| `canvas.loadFromJSON(json, callback)` | **BROKEN** | `canvas.loadFromJSON(json)` vraća Promise — koristiti `.then()` |
+| `canvas.setZoom(n)` | **RISKY** | Primenjuje viewport transform samo na objekte; backgroundImage ignoriše zoom |
+| `canvas.toDataURL({format, quality})` | **RISKY** | TypeScript tip zahteva `multiplier` polje — dodati `multiplier: 1` |
+| `new fabric.Rect({})` bez `originX/originY` | **RISKY** | v7 default je `center`; v5 default bio `left`/`top` — uvek eksplicitno navesti |
+| `new fabric.IText({})` bez `originX/originY` | **RISKY** | Isto kao Rect — tekst se pozicionira od centra bez eksplicitnog origina |
+
+**Najskuplja zamka je `setZoom`.** U v7 `setZoom` primenjuje viewport transform samo na objekte — `backgroundImage` se uvek renderuje u sopstvenoj skali i ignoriše zoom. Zbog toga editor prikazuje samo gornji-levi ugao screenshota bez obzira na zoom vrednost. Ispravan pristup: kreirati canvas na display dimenzijama (zoom ostaje 1) i skalirati `backgroundImage` eksplicitno kroz `scaleX`/`scaleY` na `FabricImage` objektu. Za export u punoj rezoluciji koristiti privremeni offscreen canvas na prirodnim dimenzijama i klonirati objekte skalirane sa `1/scale`.
 
 ---
 
