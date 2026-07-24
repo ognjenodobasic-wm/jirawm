@@ -41,6 +41,7 @@ const EXCLUDED_FIELD_IDS = new Set([
   'parent',
   'attachment',
   'reporter',
+  'assignee',
 ]);
 
 const inputStyle: CSSProperties = {

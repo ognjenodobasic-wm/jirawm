@@ -191,7 +191,7 @@ export default function WorkflowsTab({
             style={{ minHeight: '200px' }}
           >
             <p className="text-sm" style={{ color: 'var(--chrome-text-secondary)' }}>
-              Još nema workflowa.
+              No workflows yet.
             </p>
             <button
               onClick={onNewWorkflow}
@@ -206,7 +206,7 @@ export default function WorkflowsTab({
                 opacity: isAuthed ? 1 : 0.7,
               }}
             >
-              + Kreiraj prvi workflow
+              + Create first workflow
             </button>
           </div>
         ) : (
@@ -295,8 +295,8 @@ export default function WorkflowsTab({
                 className="mt-2 text-xs"
                 style={{ color: 'var(--chrome-text-secondary)', lineHeight: 1.6 }}
               >
-                <div>Projekat: {w.projectName} — {w.issueType}</div>
-                <div>Parent: {w.hasParent && w.parentKey ? w.parentKey : 'Root projekta'}</div>
+                <div>Project: {w.projectName} — {w.issueType}</div>
+                <div>Parent: {w.hasParent && w.parentKey ? w.parentKey : 'Root project'}</div>
                 <div>
                   Required: {requiredCount(w)} · Optional: {w.optionalFields.length}
                 </div>

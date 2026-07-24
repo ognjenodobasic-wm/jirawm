@@ -106,7 +106,7 @@ export async function searchIssues(
  */
 export async function getAssignableUsers(projectKey: string): Promise<JiraUser[]> {
   const data = (await apiFetch(
-    `/user/assignable/multiProjectSearch?projectKeys=${encodeURIComponent(projectKey)}&maxResults=50`,
+    `/user/assignable/search?project=${encodeURIComponent(projectKey)}&query=&maxResults=50`,
   )) as Array<{
     accountId: string;
     displayName: string;

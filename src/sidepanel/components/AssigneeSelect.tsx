@@ -65,7 +65,7 @@ export default function AssigneeSelect({ projectKey, value, onChange, disabled }
           color: 'var(--chrome-text-secondary)',
         }}
       >
-        <option>Nije moguće učitati korisnike</option>
+        <option>Failed to load users</option>
       </select>
     );
   }
