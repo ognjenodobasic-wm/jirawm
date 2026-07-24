@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-type HelpSection = 'intro' | 'quicksetup' | 'single' | 'bulk' | 'screenshot' | 'feedback';
+type HelpSection = 'intro' | 'quicksetup' | 'single' | 'bulk' | 'screenshot' | 'feedback' | 'changelog';
 
 const SECTIONS: { id: HelpSection; label: string }[] = [
   { id: 'intro', label: 'Intro' },
@@ -9,6 +9,7 @@ const SECTIONS: { id: HelpSection; label: string }[] = [
   { id: 'bulk', label: 'Bulk upload' },
   { id: 'screenshot', label: 'Screenshot' },
   { id: 'feedback', label: 'Feedback' },
+  { id: 'changelog', label: 'Changelog' },
 ];
 
 /* ── Scrollbar styles (injected once) ── */
@@ -773,6 +774,142 @@ function FeedbackSection() {
   );
 }
 
+const CHANGELOG_DATA = [
+  {
+    version: '2.0.0',
+    date: 'Juli 2026',
+    items: [
+      'Annotation editor — popup prozor sa Fabric.js canvas editorom',
+      'Alati: strelica, kvadrat (outline/fill), numbered markers, tekst',
+      'Screenshot preview popup pre anotacije',
+      '5 preset boja, stroke width, undo/redo, keyboard shortcuts',
+      'Popup pamti dimenzije i poziciju između sesija',
+    ],
+    major: true,
+  },
+  {
+    version: '1.4.0',
+    date: 'Juli 2026',
+    items: [
+      'Assignee dropdown u Single i Bulk modu',
+      'Help panel sa 6 sekcija',
+    ],
+  },
+  {
+    version: '1.3.0',
+    date: 'Juli 2026',
+    items: [
+      'Thumbnail strip — više screenshotova po tasku (max 10)',
+      'Drag & drop reorder, lightbox navigacija',
+      'Sekvencijalni upload više attachmenta',
+    ],
+  },
+  {
+    version: '1.2.0',
+    date: 'Juli 2026',
+    items: [
+      'Export/import workflowa kao JSON',
+      'Snapshot metadata u Settings-u',
+    ],
+  },
+  {
+    version: '1.1.0',
+    date: 'Juli 2026',
+    items: [
+      'Bulk mod sa background Service Worker processingom',
+      'Per-row status, progress persistencija, retry failed',
+      'Desktop notifikacija po završetku',
+    ],
+  },
+  {
+    version: '1.0.0',
+    date: 'Juli 2026',
+    items: [
+      'Inicijalno izdanje — Single Task, Settings, Workflow CRUD',
+      'Screenshot capture, JPEG kompresija, Jira API integracija',
+    ],
+  },
+];
+
+function ChangelogSection() {
+  return (
+    <div>
+      <SectionTitle>Changelog</SectionTitle>
+      <Subtitle>All notable changes to JiraWM.</Subtitle>
+
+      {CHANGELOG_DATA.map((release, idx) => (
+        <div key={release.version}>
+          {idx > 0 && <Divider />}
+          <div
+            style={{
+              background: 'var(--chrome-surface)',
+              border: '1px solid var(--chrome-border)',
+              borderRadius: '6px',
+              padding: '12px',
+              marginBottom: '10px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '10px',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: 'var(--chrome-text-primary)',
+                }}
+              >
+                v{release.version}
+              </span>
+              <span
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--chrome-text-secondary)',
+                }}
+              >
+                {release.date}
+              </span>
+              {release.major && (
+                <span
+                  style={{
+                    background: 'var(--chrome-blue)',
+                    color: '#fff',
+                    fontSize: '10px',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    fontWeight: 500,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Major release
+                </span>
+              )}
+            </div>
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: '18px',
+                fontSize: '13px',
+                lineHeight: 1.8,
+                color: 'var(--chrome-text-primary)',
+              }}
+            >
+              {release.items.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function HelpContent({ section }: { section: HelpSection }) {
   switch (section) {
     case 'intro':
@@ -787,6 +924,8 @@ function HelpContent({ section }: { section: HelpSection }) {
       return <ScreenshotSection />;
     case 'feedback':
       return <FeedbackSection />;
+    case 'changelog':
+      return <ChangelogSection />;
     default:
       return <IntroSection />;
   }
