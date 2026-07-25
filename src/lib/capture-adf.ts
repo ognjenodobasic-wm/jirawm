@@ -171,6 +171,8 @@ export function buildCaptureDetailsADF(
   screenshots: ScreenshotItem[],
   settings: CaptureDetailsSettings,
 ): ADFNode[] | null {
+  if (!settings.enabled) return null;
+
   const captures = screenshots.filter((s): s is ScreenshotItem & { metadata: NonNullable<ScreenshotItem['metadata']> } =>
     s.origin === 'capture' && s.metadata !== null,
   );

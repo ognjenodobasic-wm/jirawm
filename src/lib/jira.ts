@@ -1,4 +1,5 @@
 import type { AuthConfig, IssueTypeMeta, JiraField, JiraUser } from '../types';
+import type { ADFDoc } from './capture-adf';
 import { getLocal, setLocal } from './storage';
 
 let _auth: AuthConfig | null = null;
@@ -217,9 +218,11 @@ export async function createIssue(params: {
     project: { key: params.projectKey },
     summary: params.summary,
     issuetype: { name: params.issueType },
-    description: toADF(
-      typeof params.fields['description'] === 'string' ? params.fields['description'] : '',
-    ),
+    description: (() => {
+      const d = params.fields['description'];
+      if (d !== null && typeof d === 'object' && (d as ADFDoc).type === 'doc') return d as ADFDoc;
+      return toADF(typeof d === 'string' ? d : '');
+    })(),
   };
 
   for (const [fieldId, value] of Object.entries(params.fields)) {
