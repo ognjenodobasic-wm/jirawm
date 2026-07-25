@@ -92,6 +92,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   const [error, setError] = useState<string | null>(null);
   const [resultKey, setResultKey] = useState<string | null>(null);
   const [attachFailed, setAttachFailed] = useState(false);
+  const [failedIndices, setFailedIndices] = useState<number[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
@@ -358,7 +359,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   }
 
   async function retryFailedAttachments() {
-    if (!resultKey || screenshots.length === 0) return;
+    if (!resultKey || failedIndices.length === 0) return;
     setIsLoading(true);
     setError(null);
     try {
@@ -366,19 +367,27 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       if (!auth) throw new Error('Jira credentials not configured.');
       setAuth(auth);
 
-      const next: ScreenshotItem[] = [];
-      for (const item of screenshots) {
+      const stillFailed: number[] = [];
+      let successCount = 0;
+      for (const idx of failedIndices) {
+        const item = screenshots[idx];
+        if (!item) continue;
         try {
           await attachScreenshot(resultKey, item.dataUrl, item.filename);
-          next.push({ ...item });
-        } catch (attachErr) {
-          next.push({ ...item });
-          throw attachErr;
+          successCount++;
+        } catch {
+          stillFailed.push(idx);
         }
       }
-      setScreenshots(next);
-      setAttachFailed(false);
-      setError(null);
+
+      if (stillFailed.length === 0) {
+        setAttachFailed(false);
+        setFailedIndices([]);
+        setError(null);
+      } else {
+        setFailedIndices(stillFailed);
+        setError(`${successCount}/${failedIndices.length} retried screenshots uploaded`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -452,12 +461,15 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
 
       let uploadedCount = 0;
       const next: ScreenshotItem[] = [];
-      for (const item of screenshots) {
+      const newFailedIndices: number[] = [];
+      for (let i = 0; i < screenshots.length; i++) {
+        const item = screenshots[i];
         try {
           await attachScreenshot(issue.key, item.dataUrl, item.filename);
           uploadedCount++;
           next.push({ ...item });
         } catch {
+          newFailedIndices.push(i);
           next.push({ ...item });
         }
       }
@@ -466,12 +478,14 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       if (uploadedCount < screenshots.length) {
         setResultKey(issue.key);
         setAttachFailed(true);
+        setFailedIndices(newFailedIndices);
         setError(`${uploadedCount}/${screenshots.length} screenshots uploaded`);
       } else {
         const createdKey = issue.key;
         const createdSummary = summary.trim();
         setResultKey(createdKey);
         setAttachFailed(false);
+        setFailedIndices([]);
         setError(null);
         setShowSuccess(true);
         addToHistory(createdKey, createdSummary, auth.domain);
@@ -897,7 +911,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
                 opacity: isLoading ? 0.6 : 1,
               }}
             >
-              {isLoading ? 'Retrying…' : 'Retry screenshots'}
+              {isLoading ? 'Retrying…' : `Retry screenshots (${failedIndices.length})`}
             </button>
           </div>
         )}
