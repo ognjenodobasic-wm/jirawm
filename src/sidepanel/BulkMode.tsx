@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import type { BulkTask, Workflow } from '../types';
 import { getLocal, setLocal } from '../lib/storage';
+import { normalizeImage } from '../lib/image';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 import AssigneeSelect from './components/AssigneeSelect';
 
@@ -8,8 +9,8 @@ type BulkRowStatus = 'waiting' | 'creating' | 'uploading' | 'done' | 'failed';
 
 interface BulkRow {
   id: string;
-  file: File;
-  preview: string;
+  dataUrl: string;
+  filename: string;
   summary: string;
   description: string;
   assignee: string | null;
@@ -28,15 +29,6 @@ interface BulkModeProps {
 
 const BULK_PROGRESS_KEY = 'jirawm_bulk_progress';
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, domain, onOpenSettings }: BulkModeProps) {
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -49,19 +41,31 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
 
   const activeWorkflow = workflows.find((w) => w.id === selectedWorkflowId) ?? null;
 
-  const addFiles = useCallback((files: FileList | null) => {
+  const addFiles = useCallback(async (files: FileList | null) => {
     if (!files) return;
     const defaultAssignee = activeWorkflow?.defaultAssignee ?? null;
     const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
-    const newRows: BulkRow[] = imageFiles.map((file) => ({
-      id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      file,
-      preview: URL.createObjectURL(file),
-      summary: '',
-      description: '',
-      assignee: defaultAssignee,
-      status: 'waiting',
-    }));
+
+    const settings = { quality: 0.85, maxWidth: 1920, transparencyFill: 'white' as const };
+
+    const newRows: BulkRow[] = [];
+    for (const file of imageFiles) {
+      try {
+        const { dataUrl } = await normalizeImage(file, settings);
+        newRows.push({
+          id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          dataUrl,
+          filename: file.name,
+          summary: '',
+          description: '',
+          assignee: defaultAssignee,
+          status: 'waiting',
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to ingest file:', file.name, err);
+      }
+    }
     setRows((prev) => [...prev, ...newRows]);
   }, [activeWorkflow?.defaultAssignee]);
 
@@ -90,7 +94,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    addFiles(e.dataTransfer.files);
+    void addFiles(e.dataTransfer.files);
   }
 
   function handleDragOver(e: React.DragEvent) {
@@ -106,7 +110,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    addFiles(e.target.files);
+    void addFiles(e.target.files);
     e.target.value = '';
   }
 
@@ -123,15 +127,10 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   }
 
   function removeRow(id: string) {
-    setRows((prev) => {
-      const row = prev.find((r) => r.id === id);
-      if (row) URL.revokeObjectURL(row.preview);
-      return prev.filter((r) => r.id !== id);
-    });
+    setRows((prev) => prev.filter((r) => r.id !== id));
   }
 
   function clearAll() {
-    rows.forEach((row) => URL.revokeObjectURL(row.preview));
     setRows([]);
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -141,19 +140,14 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   }
 
   async function buildTasks(rowsToUpload: BulkRow[]): Promise<BulkTask[]> {
-    const tasks: BulkTask[] = [];
-    for (const row of rowsToUpload) {
-      const base64 = await fileToBase64(row.file);
-      tasks.push({
-        id: row.id,
-        summary: row.summary || row.file.name,
-        description: row.description,
-        assignee: row.assignee ?? undefined,
-        screenshotBase64: base64,
-        status: 'waiting',
-      });
-    }
-    return tasks;
+    return rowsToUpload.map((row) => ({
+      id: row.id,
+      summary: row.summary || row.filename,
+      description: row.description,
+      assignee: row.assignee ?? undefined,
+      screenshotBase64: row.dataUrl,
+      status: 'waiting',
+    }));
   }
 
   function startPolling() {
@@ -187,9 +181,9 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   async function startUpload() {
     if (rows.length === 0 || !selectedWorkflowId) return;
 
-      const tasks = (await buildTasks(rows)).map((task) => ({ ...task, workflowId: selectedWorkflowId }));
-      setRows((prev) => prev.map((row) => ({ ...row, status: 'waiting' })));
-      await setLocal(BULK_PROGRESS_KEY, tasks);
+    const tasks = (await buildTasks(rows)).map((task) => ({ ...task, workflowId: selectedWorkflowId }));
+    setRows((prev) => prev.map((row) => ({ ...row, status: 'waiting' })));
+    await setLocal(BULK_PROGRESS_KEY, tasks);
     chrome.runtime.sendMessage({ type: 'START_BULK', workflowId: selectedWorkflowId });
     startPolling();
   }
@@ -215,16 +209,9 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   const hasFailedRows = rows.some((row) => row.status === 'failed');
   const hasActiveRows = rows.some((row) => row.status === 'creating' || row.status === 'uploading');
 
-  const rowsRef = useRef(rows);
-  useEffect(() => { rowsRef.current = rows; }, [rows]);
   useEffect(() => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, []);
-  useEffect(() => {
-    return () => {
-      rowsRef.current.forEach((row) => URL.revokeObjectURL(row.preview));
     };
   }, []);
 
@@ -328,9 +315,9 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
             >
               <div className="flex items-start gap-2">
                 <img
-                  src={row.preview}
-                  alt={row.file.name}
-                  onClick={() => openLightbox(row.preview)}
+                  src={row.dataUrl}
+                  alt={row.filename}
+                  onClick={() => openLightbox(row.dataUrl)}
                   style={{
                     width: 80,
                     height: 80,
@@ -345,7 +332,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
                     #{index + 1}
                   </div>
                   <div className="text-xs truncate" style={{ color: 'var(--chrome-text-primary)' }}>
-                    {row.file.name}
+                    {row.filename}
                   </div>
                 </div>
                 <button
