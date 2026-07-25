@@ -172,6 +172,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
       assignee: row.assignee ?? undefined,
       screenshotBase64: row.dataUrl,
       status: 'waiting',
+      attachmentName: row.filename,
     }));
   }
 

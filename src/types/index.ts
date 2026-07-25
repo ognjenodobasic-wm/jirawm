@@ -113,6 +113,7 @@ export interface BulkTask {
   issueKey?: string;
   error?: string;
   workflowId?: string;
+  attachmentName?: string;
 }
 
 export interface ExportSnapshot {

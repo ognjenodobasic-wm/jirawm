@@ -100,7 +100,7 @@ async function processBulkTasks(progress: BulkTask[], workflow: Workflow): Promi
 
     try {
       if (task.status === 'uploading' && task.issueKey) {
-        await attachScreenshot(task.issueKey, task.screenshotBase64, `${task.issueKey}-screenshot.jpg`);
+        await attachScreenshot(task.issueKey, task.screenshotBase64, task.attachmentName ?? `${task.issueKey}-screenshot.jpg`);
         task.status = 'done';
         createdCount++;
         await saveProgress(progress);
@@ -135,7 +135,7 @@ async function processBulkTasks(progress: BulkTask[], workflow: Workflow): Promi
       task.issueKey = issue.key;
       await saveProgress(progress);
 
-      await attachScreenshot(issue.key, task.screenshotBase64, `${issue.key}-screenshot.jpg`);
+      await attachScreenshot(issue.key, task.screenshotBase64, task.attachmentName ?? `${issue.key}-screenshot.jpg`);
 
       task.status = 'done';
       createdCount++;
