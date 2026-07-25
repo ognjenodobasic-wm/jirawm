@@ -48,6 +48,14 @@ chrome.notifications.onClicked.addListener(() => {
   });
 });
 
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'keepAlive') {
+    // No-op handler required to keep the service worker alive during bulk processing.
+    // Chrome's MV3 service workers are terminated when idle; setting an alarm with a
+    // periodic listener is the documented pattern to extend worker lifetime.
+  }
+});
+
 async function saveProgress(tasks: BulkTask[]): Promise<void> {
   await setLocal(BULK_PROGRESS_KEY, tasks);
 }
@@ -89,7 +97,7 @@ async function resumeBulkIfNeeded(): Promise<void> {
 }
 
 async function processBulkTasks(progress: BulkTask[], workflow: Workflow): Promise<void> {
-  await chrome.alarms.create('keepAlive', { periodInMinutes: 0.33 });
+  await chrome.alarms.create('keepAlive', { periodInMinutes: 0.5 });
 
   let createdCount = 0;
   let failedCount = 0;
