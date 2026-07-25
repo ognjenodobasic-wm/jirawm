@@ -1,6 +1,6 @@
 # JiraWM — Project Structure
 > Auto-generated. Run "Generate/Update structure.md" prompt to refresh.
-> Last updated: 2026-07-24
+> Last updated: 2026-07-25
 
 ---
 
@@ -16,7 +16,7 @@ Git ignore rules — node_modules, dist, etc.
 OxLint linter configuration.
 
 ### `CHANGELOG.md`
-Version history for all releases (1.0.0 → 2.0.0). Source of truth for changelog data displayed in the Help panel.
+Version history for all releases (1.0.0 → 3.0.1). Source of truth for changelog data displayed in the Help panel.
 
 ### `CLAUDE.md`
 Claude Code instructions — project overview, architecture, build commands, rules, known pitfalls. Read before every task.
@@ -25,7 +25,7 @@ Claude Code instructions — project overview, architecture, build commands, rul
 HTML entry point for the annotation editor popup window. Vite processes this as a separate entry point.
 
 ### `manifest.json`
-Chrome Extension Manifest V3 — permissions, side panel config, background service worker, keyboard shortcut command, icons.
+Chrome Extension Manifest V3 — permissions (activeTab, storage, tabs, notifications, sidePanel, alarms), optional_host_permissions (`<all_urls>` for capture), side panel config, background service worker, keyboard shortcut command, icons.
 
 ### `package.json`
 Project dependencies and scripts — React 19, Vite, @crxjs/vite-plugin, Fabric.js, Tailwind CSS v4.
@@ -53,7 +53,7 @@ Vite build configuration with @crxjs/vite-plugin for Chrome extension bundling, 
 ## `docs/` — Documentation
 
 ### `docs/ARCHITECTURE.md`
-Detailed architecture docs — three JS contexts, storage map, field serialization, known pitfalls.
+Detailed architecture docs — three JS contexts, storage map, field serialization, image ingest pipeline, capture metadata, permission model, editor state machine, known pitfalls.
 
 ### `docs/jirawm-spec-v1.2.md`
 Authoritative feature specification — functional requirements, data models, storage schema, phase checklist.
@@ -89,16 +89,13 @@ Chrome background service worker — handles bulk task processing (START_BULK me
 Entry point for the annotation editor popup. Renders AnnotationEditor component into the DOM.
 
 ### `src/editor/AnnotationEditor.tsx`
-Root editor component — reads pending editor data from storage, routes between Preview and Annotate modes, handles ANNOTATION_DONE message and window close.
-
-### `src/editor/PreviewMode.tsx`
-Read-only screenshot preview in a popup window. Shows full-size image with Annotate and Close buttons, Escape keyboard shortcut.
+Root editor component — reads pending editor data from chrome.storage.local (via `useEditorTransfer`), passes screenshotId and dataUrl to AnnotateMode, handles ANNOTATION_DONE message, window close, and one-editor-window guard.
 
 ### `src/editor/AnnotateMode.tsx`
-Full Fabric.js annotation canvas editor — Select, Arrow, Rect (outline/fill), Numbered Marker, Text tools. 5 color presets, stroke width dropdown, Undo/Redo history stack, Delete selected. Keyboard shortcuts (V/A/R/M/T/F, Ctrl+Z/Y, Delete). Export as JPEG.
+Full Fabric.js annotation canvas editor — unified viewer and editor mode. Supports crop (image-space accurate with scale factor), Select, Arrow, Rect (outline/fill), Numbered Marker, Text tools. 5 color presets, stroke width dropdown, Undo/Redo history stack, Delete selected. Keyboard shortcuts (V/A/R/M/T/F, Ctrl+Z/Y, Delete). Close when empty, Cancel+Save when dirty. Export at hardcoded 0.95 JPEG quality.
 
 ### `src/editor/useEditorTransfer.ts`
-Storage helper for editor ↔ side panel communication — reads pending editor data, writes annotation results, cleans up storage keys.
+Storage helper for editor ↔ side panel communication — reads pending editor data, writes annotation results (screenshotId-based, not index-based), cleans up storage keys.
 
 ### `src/editor/useWindowBounds.ts`
 Tracks and persists editor popup window dimensions/position via chrome.storage.local with 500ms debounce.
@@ -111,10 +108,22 @@ Tracks and persists editor popup window dimensions/position via chrome.storage.l
 All Jira Cloud REST API v3 interactions — auth (Basic), testConnection, getProjects, getIssueTypes (with createmeta caching), getAssignableUsers, searchIssues, createIssue (with field serialization), attachScreenshot. Single source of fetch calls.
 
 ### `src/lib/storage.ts`
-Chrome storage wrapper — getLocal/setLocal (local area), getSync/setSync (sync area). All storage access goes through this module.
+Chrome storage wrapper — getLocal/setLocal (local area), getSync/setSync (sync area), getAppSettings/saveAppSettings (app settings). All storage access goes through this module.
 
 ### `src/lib/workflows.ts`
 Workflow CRUD — getWorkflows, saveWorkflow, deleteWorkflow, buildWorkflowFields (merges required + optional defaults into Jira fields object). Also removeLegacySyncWorkflows for storage migration.
+
+### `src/lib/image.ts`
+Unified image ingest pipeline — `normalizeImage()` converts any image input (File or dataUrl) to JPEG with transparency fill, quality control, and maxWidth scaling. Also provides `readImageSize()` for reading raw image dimensions before normalization, and `toJpegFilename()` for generating attachment filenames.
+
+### `src/lib/capture-metadata.ts`
+Permission-free capture metadata collector — `collectCaptureMetadata()` reads URL, title, viewport, DPR, zoom, browser, and OS from raw captured image dimensions and chrome.tabs API. Viewport is derived arithmetically from image dimensions, not measured via scripting permission.
+
+### `src/lib/capture-adf.ts`
+ADF description builder — `buildDescriptionADF()` merges user description text with capture details ADF block (URL, page title, timestamp, viewport, browser). `buildCaptureDetailLines()` is the single source of truth for detail lines, shared between ADF builder and the SingleMode preview.
+
+### `src/lib/permissions.ts`
+Permission helpers — `hasCapturePermission()` checks if `<all_urls>` is granted; `requestCapturePermission()` requests it (must be called synchronously from click handler).
 
 ---
 
@@ -124,10 +133,10 @@ Workflow CRUD — getWorkflows, saveWorkflow, deleteWorkflow, buildWorkflowField
 Root component. Renders tab bar (Single Task | Bulk Upload | Workflows | Help | ⚙️), sticky workflow selector (visible on Single/Bulk only), auth state management. Routes between SingleMode, BulkMode, WorkflowsTab, Help, Settings, WorkflowManager.
 
 ### `src/sidepanel/SingleMode.tsx`
-Single task creation — capture screenshot, thumbnail strip with lightbox, drag reorder, summary/description/assignee fields, create Jira issue + attach screenshots, recent task history, error handling with retry.
+Single task creation — screenshot card with Capture (primary) and Add (secondary) buttons, horizontal thumbnail scrolling with fade affordance, click-to-open annotation editor, capture details preview (shared ADF lines), summary/description/assignee fields, create Jira issue + attach screenshots, recent task history, error handling with retry. Monotonic numbering with no renumbering on delete.
 
 ### `src/sidepanel/BulkMode.tsx`
-Bulk task creation — file drop zone, per-row summary input, background processing via service worker, progress tracking, retry failed rows, completion notification.
+Bulk task creation — file drop zone, per-row summary/description/assignee inputs with live numbering, background processing via service worker, progress tracking, retry failed rows, completion notification. Position-based numbering renumbers on row removal.
 
 ### `src/sidepanel/WorkflowsTab.tsx`
 Workflow management tab — displays workflows as cards (name, project, parent summary, issue type, assignee), kebab menu with Edit/Delete, import/export JSON, empty state. Fetches parent issue summaries from Jira API on mount.
@@ -136,10 +145,10 @@ Workflow management tab — displays workflows as cards (name, project, parent s
 5-step workflow creation/edit wizard — project selection, parent task search, default assignee, issue type selection, required field defaults, optional field defaults, workflow naming and save. Excludes assignee from optional fields.
 
 ### `src/sidepanel/Settings.tsx`
-Settings panel — Jira domain/email/API token input, test connection, JPEG compression settings (quality slider, max width), save compression.
+Settings panel — Jira domain/email/API token input, test connection, accordion-based settings sections for image handling (quality, maxWidth, transparency fill), screenshot naming (single/bulk numbering), capture details (position, field toggles), and page access permission status with Grant button.
 
 ### `src/sidepanel/Help.tsx`
-Help panel with sidebar navigation — 7 sections: Intro, Quick setup, Single task, Bulk upload, Screenshot, Feedback, Changelog. Hardcoded changelog data synced with CHANGELOG.md.
+Help panel with sidebar navigation — 7 sections: Intro, Quick setup, Single task, Bulk upload, Screenshot, Feedback, Changelog. Hardcoded changelog data synced with CHANGELOG.md. Covers annotation editor, capture details, and crop tool documentation.
 
 ### `src/sidepanel/ConnectJiraPrompt.tsx`
 Empty state prompt shown when Jira is not configured — directs user to open Settings.
@@ -150,6 +159,12 @@ Empty state prompt shown when Jira is not configured — directs user to open Se
 
 ### `src/sidepanel/components/AssigneeSelect.tsx`
 Assignee dropdown — reads cached assignable users from chrome.storage.local by project key. Shows sorted user list with Unassigned option.
+
+### `src/sidepanel/components/Accordion.tsx`
+Collapsible accordion section with tooltip — used in Settings for image, naming, and capture details sections.
+
+### `src/sidepanel/components/Tooltip.tsx`
+Hover/focus tooltip — positioned relative to trigger, flips above if near bottom edge, stays inside panel horizontally. Accessible via keyboard focus.
 
 ---
 
@@ -163,7 +178,7 @@ Chrome-native CSS variables (--chrome-bg, --chrome-surface, --chrome-border, --c
 ## `src/types/` — TypeScript types
 
 ### `src/types/index.ts`
-All shared type definitions — AuthConfig, Workflow, JiraField, JiraUser, IssueTypeMeta, BulkTask, ScreenshotItem, CompressionSettings, EditorMode, PendingEditor, AnnotationResult, PanelMode, etc.
+All shared type definitions — AuthConfig, Workflow, JiraField, JiraUser, IssueTypeMeta, BulkTask, ScreenshotItem (with origin, number, filename, metadata), CaptureMetadata, CaptureDetailsSettings, AppSettings, ImageSettings, NamingSettings, CompressionSettings, PendingEditor (screenshotId-based), AnnotationResult (screenshotId-based), WindowBounds, PanelMode, etc.
 
 ### `src/types/chrome.d.ts`
 Chrome API type declarations for Manifest V3 APIs not covered by @types/chrome.

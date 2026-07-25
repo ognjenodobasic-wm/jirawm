@@ -12,7 +12,7 @@ MV3 ekstenzija se izvršava u tri odvojena JS okruženja. **Nijedno ne deli memo
 |----------|---------|-------|-------------|
 | **Side Panel (UI)** | `src/sidepanel/*` | React UI — forme, tabele, workflow wizard | Živi dok je panel otvoren |
 | **Background Service Worker** | `src/background/worker.ts` | Bulk obrada, notifikacije, otvaranje panela | MV3 ga gasi posle ~30s neaktivnosti |
-| **Annotation Editor Popup** | `src/editor/*` (Faza 5) | Preview i anotacija screenshota | Popup prozor (`type:'popup'`), živi dok je prozor otvoren |
+| **Annotation Editor Popup** | `src/editor/*` | Crop i anotacija screenshota | Popup prozor (`type:'popup'`), živi dok je prozor otvoren |
 
 ### Zašto ne dele memoriju
 Svaki kontekst je zaseban V8 izolat. `setAuth()` pozvan u Side Panelu **ne** postavlja `_auth` u workeru — zato i Side Panel i worker svaki za sebe učitavaju `auth` iz `chrome.storage.local` i pozivaju `setAuth()` pre bilo kog Jira poziva (vidi `SingleMode.handleSubmit` i `worker.processBulkTasks`).
@@ -35,11 +35,10 @@ Workflowi se čuvaju u `local` storage-u. `sync` je legacy lokacija iz koje se p
 | `accountId` | local | `string` — Jira accountId | `Settings.handleSave` (posle testConnection) | `SidePanel` (auth gate) |
 | `jirawm_workflows` | **local** | `Workflow[]` | `workflows.saveWorkflow/deleteWorkflow`, `Settings` import | `SidePanel`, `SingleMode`, `worker`, `WorkflowManager` |
 | `jirawm_bulk_progress` | local | `BulkTask[]` — status svakog taska | `BulkMode`, `worker.saveProgress` | `BulkMode` (poll), `worker` |
-| `jirawm_export_snapshot` | local | `ExportSnapshot` — meta poslednjeg exporta | `Settings.handleExport` | `Settings` | 
-| `jirawm_compression` | local | `{ quality, maxWidth }` | `Settings.handleSaveCompression` | `SingleMode`, `Settings` |
+| `jirawm_export_snapshot` | local | `ExportSnapshot` — meta poslednjeg exporta | `Settings.handleExport` | `Settings` |
 | `jirawm_createmeta_{projectKey}` | local | `IssueTypeMeta[]` — keširan createmeta | `jira.getIssueTypes` | `jira.getIssueTypes` |
-| `pendingEditor` | local | `PendingEditor` — screenshot + mode za editor popup | `SingleMode.openEditor` | `AnnotationEditor` on mount |
-| `annotationResult` | local | `AnnotationResult` — anotovani dataUrl + index | `AnnotateMode` (Done) | `SingleMode` ANNOTATION_DONE listener |
+| `pendingEditor` | local | `PendingEditor` — screenshotId + dataUrl za editor popup | `SingleMode.openEditor` | `AnnotationEditor` on mount |
+| `annotationResult` | local | `AnnotationResult` — anotovani dataUrl + screenshotId | `AnnotateMode` (Save) | `SingleMode` ANNOTATION_DONE listener |
 | `editorWindowBounds` | local | `WindowBounds` — poslednje dimenzije editor popupa | `useWindowBounds` hook | `SingleMode.openEditor` |
 
 **Pravila (iz CLAUDE.md):** token/email/domain uvek `local`, nikad sync. Workflowi uvek `local`. Nikad `localStorage`. `removeLegacySyncWorkflows()` čisti preostale sync zapise.
@@ -52,14 +51,17 @@ Base URL: `https://{domain}.atlassian.net/rest/api/3`. Svi pozivi idu kroz `apiF
 
 ### Single Task mod
 ```
-[UI] Capture Screenshot
-   └─ chrome.tabs.captureVisibleTab(null, {format:'jpeg', quality})
-   └─ resizeImage() na canvas → JPEG dataURL (workflow.compression ili global)
+[UI] Capture screenshot (or Add files)
+   └─ captureVisibleTab(null, {format:'png'}) → lossless PNG
+   └─ collectCaptureMetadata() → viewport, URL, browser from raw image dimensions
+   └─ normalizeImage(rawDataUrl, imageSettings) → single JPEG compression via canvas
+   └─ adds ScreenshotItem to screenshots[]
 [UI] Create Task (submit)
    └─ getLocal('auth') → setAuth()
+   └─ buildDescriptionADF(description, screenshots, position, captureDetailsSettings)
+   │    └─ merges user text + capture details ADF block
    └─ createIssue({summary, projectKey, issueType, parentKey?, fields, fieldMeta})
         ├─ serializeField() na svako polje
-        ├─ description → toADF()
         └─ POST /issue           →  { id, key }   (npr. AT-234)
    └─ attachScreenshot(key, dataURL, filename)
         └─ POST /issue/{key}/attachments  (multipart, X-Atlassian-Token: no-check)
@@ -108,30 +110,35 @@ Jira odbija (400) ako se strukturisano polje pošalje kao goli string. `serializ
 | `number` | `Number(value)` | numerička polja |
 | ostalo / nepoznato | `value` (string) | text, textarea |
 
-**Gde se poziva:** unutar `createIssue()`, u petlji kroz `params.fields` (preskače `description`, koji ide kroz `toADF`). Poziva se i iz Single moda i iz bulk workera, jer oba prolaze kroz `createIssue` i prosleđuju `workflow.fieldMeta`.
+**Gde se poziva:** unutar `createIssue()`, u petlji kroz `params.fields` (preskače `description`, koji ide kroz `buildDescriptionADF`). Poziva se i iz Single moda i iz bulk workera, jer oba prolaze kroz `createIssue` i prosleđuju `workflow.fieldMeta`.
 
 `fieldMeta` se snima u sam workflow u trenutku kreiranja (iz `getIssueTypes`), tako da serializacija radi i offline / iz keša.
 
 ---
 
-## Screenshot model (Faza 4)
+## Screenshot model
 
 Single Task mod podržava **više screenshotova po tasku** (max 10). Model je `ScreenshotItem` iz `src/types/index.ts`:
 
 ```ts
 interface ScreenshotItem {
-  id: string;      // crypto.randomUUID()
-  dataUrl: string; // resized/compressed JPEG data URL
-  label?: string;  // rezervisano za buduće labeliranje/anotacije (Faza 5)
+  id: string;        // crypto.randomUUID()
+  dataUrl: string;   // JPEG data URL after normalizeImage
+  origin: 'capture' | 'upload';
+  number: number | null;  // sequence number (1, 2, 3...), null when numbering is off
+  filename: string;       // final attachment filename, e.g. "1.jpg"
+  metadata: CaptureMetadata | null;  // only when origin === 'capture'
+  label?: string;
+  annotated?: boolean;
 }
 ```
 
-### Thumbnail strip u SingleMode
-- Stanje: `screenshots: ScreenshotItem[]` + `selectedId` + `selectedIndex` (za lightbox).
-- Svaki **Capture/Add Screenshot** zove `captureVisibleTab` → `resizeImage()` → dodaje novi `ScreenshotItem` sa `crypto.randomUUID()`. Na 10 stavki dugme se disable-uje (`MAX_SCREENSHOTS = 10`), a labela prelazi iz "Capture Screenshot" u "Add Screenshot".
-- Strip je horizontalni scroll (64×64 thumbnaili). Klik na thumbnail otvara **lightbox**; `×` u uglu uklanja stavku (`handleRemove`).
-- **Drag & drop reorder** unutar stripa: `dragIdRef` pamti izvor, `onDrop` radi `splice` iz→u nad `screenshots` nizom; `dragOverId` daje vizuelni indikator (leva ivica).
-- **Lightbox navigacija**: `←`/`→` dugmad i keyboard (`Escape` zatvara, `ArrowLeft`/`ArrowRight` menjaju) preko `useEffect` koji dodaje/uklanja `keydown` listener dok je lightbox otvoren. Prikazuje brojač `index+1 / N`.
+### Screenshot card u SingleMode
+- Stanje: `screenshots: ScreenshotItem[]` + `selectedId`.
+- Header: **Capture** (primary, blue) i **Add** (secondary, outline). Capture traži page access permisiju (optional `<all_urls>`) i pravi `captureVisibleTab`. Add otvara file picker za upload.
+- Thumbnails su horizontalni scroll (64×64). Klik na thumbnail otvara **annotation editor** direktno; `×` u uglu uklanja stavku (`handleRemove`).
+- **Numbering (single mode):** monoton counter (counterRef) počinje od 1. Kada se screenshot obriše, broj se NE menja — sledeći nastavlja niz (1, 3, 4...). Counter se resetuje samo posle uspešnog `createIssue`. Ovo osigurava da referenciranje "screenshot 3" u deskripciji ostaje validno.
+- **Fade affordance:** kad sadržaj prelazi širinu panela, desna ivica ima gradijentni fade koji nestaje kad se skroluje do kraja.
 
 ### Sekvencijalni attachment flow
 Posle uspešnog `createIssue`, screenshotovi se kače **jedan po jedan** (nikad paralelno):
@@ -139,18 +146,96 @@ Posle uspešnog `createIssue`, screenshotovi se kače **jedan po jedan** (nikad 
 ```
 createIssue(...) → issue.key
 za svaki item u screenshots:
-   attachScreenshot(issue.key, item.dataUrl, `${issue.key}-${item.id}.jpg`)
+   attachScreenshot(issue.key, item.dataUrl, item.filename)
    uspeh → uploadedCount++
    greška → failedItems.push(item)   (petlja se NE prekida)
 ```
 
-**Partial success handling:** ako je `failedItems.length > 0`, issue je već kreiran (ne poništava se) — UI prikazuje `X/N screenshots uploaded`, postavlja `attachFailed=true` i nudi **Retry screenshots** (`retryFailedAttachments`), koji ponovo prolazi kroz sve i re-attach-uje. Filename konvencija: `{issueKey}-{screenshotId}.jpg` (jedinstven po stavci).
+**Partial success handling:** ako je `failedItems.length > 0`, issue je već kreiran (ne poništava se) — UI prikazuje `X/N screenshots uploaded`, postavlja `attachFailed=true` i nudi **Retry screenshots** (`retryFailedAttachments`), koji ponovo prolazi kroz sve i re-attach-uje.
 
-**Max 10 screenshotova po tasku** — tvrdo ograničenje u `handleCapture` (guard `screenshots.length >= MAX_SCREENSHOTS`) i na disable-u dugmeta.
+**Max 10 screenshotova po tasku** — tvrdo ograničenje u `handleCapture` i `handleFiles` (guard `screenshots.length >= MAX_SCREENSHOTS`). Ako se doda više fajlova nego što je preostalo mesta, višak se preskače i korisnik dobija poruku koliko fajlova je preskočeno.
 
 ---
 
-## Editor popup kontekst (Faza 5)
+## Image ingest pipeline
+
+Svaka slika koja ulazi u ekstenziju prolazi kroz `normalizeImage()` u `src/lib/image.ts`. Funkcija `resizeImage` više ne postoji.
+
+### Tok obrade
+```
+Input (File | PNG/JPEG dataUrl)
+  → drawImage na canvas sa transparencyFill pozadinom (pre drawImage — bela ili crna)
+  → scale na maxWidth ako je širina veća
+  → canvas.toDataURL('image/jpeg', quality)
+  → { dataUrl: string, width: number, height: number }
+```
+
+### Capture — lossless PNG
+`chrome.tabs.captureVisibleTab` se poziva sa `format: 'png'`. PNG je lossless i služi samo kao transfer format — `normalizeImage` zatim vrši **jedini JPEG prolaz** korisničkim quality podešavanjem. Ponovno korišćenje `format: 'jpeg'` na capture pozivu bi prouzrokovalo **dvostruku kompresiju** i primetno omekšavanje teksta na screenshotovima.
+
+### Editor export — 0.95 quality
+Annotation editor izvozi završni rezultat sa hardkodiranom `quality: 0.95`, nezavisno od korisničkog ingest quality podešavanja. Ovo sprečava gubitak kvaliteta pri svakom čuvanju (npr. crop pa annotate).
+
+### Transparency fill
+JPEG nema transparentnost. PNG-ovi sa providnim oblastima dobijaju belu (ili crnu, po Settings podešavanju) pozadinu pre nego što se nacrtaju na canvas. Bez ovoga, transparentne oblasti bi bile crne.
+
+### Bulk mode
+Bulk mod koristi isti `normalizeImage()` pipeline sa istim podešavanjima kvaliteta.
+
+---
+
+## Capture metadata
+
+Kada korisnik napravi screenshot (Capture), ekstenzija prikuplja metapodatke o uslovima snimanja. Ovi podaci se **ne pišu u description textarea** — oni se generišu pri submitu i dodaju u description ADF blok.
+
+### Viewport derivacija
+Viewport se **izračunava aritmetički**, ne meri se pomoću `scripting` permisije:
+
+```
+cssViewport = capturedImagePx / (devicePixelRatio * zoomFactor)
+```
+
+- `devicePixelRatio` dolazi iz side panela (isto Chrome okruženje, isti display).
+- `zoomFactor` se čita iz `chrome.tabs.get(tabId)`.
+- `capturedImagePx` su sirove dimenzije capture slike — **moraju se pročitati pre** `normalizeImage` jer ona downscale-uje na maxWidth.
+
+Ovo izbegava potrebu za `scripting` permisijom.
+
+### Podaci koji se prikupljaju
+`collectCaptureMetadata()` u `src/lib/capture-metadata.ts` prikuplja:
+- URL i naslov stranice (iz `chrome.tabs.get`)
+- Vreme snimanja (ISO 8601)
+- Viewport dimenzije (izračunate)
+- Device pixel ratio (iz side panela)
+- Zoom factor (iz taba)
+- Browser i OS (iz `navigator.userAgent`)
+
+### Prikaz u description ADF-u
+`buildDescriptionADF()` u `src/lib/capture-adf.ts` gradi ADF doc koji spaja korisnički tekst i capture details blok. `buildCaptureDetailLines()` je jedinstven izvor istine za linije koje se prikazuju — koristi se i za ADF list items i za preview u SingleMode panelu.
+
+---
+
+## Permission model
+
+### Required permissions (u manifest.json)
+```
+activeTab, storage, tabs, notifications, sidePanel, alarms
+```
+
+### Host permissions
+- `https://*.atlassian.net/*` — u `host_permissions` (required) — za Jira API pozive.
+- `<all_urls>` — u `optional_host_permissions` — za `captureVisibleTab`.
+
+### On-demand capture permission
+Prilikom prvog klika na **Capture**, ekstenzija poziva `chrome.permissions.request({ origins: ['<all_urls>'] })`. Ovaj poziv mora biti **prvi await** unutar click handlera — bilo koji `await` pre njega uzrokuje da Chrome odbaci zahtev tiho, bez greške u konzoli.
+
+Ako je permisija već odobrena, `request` odmah vraća `true` bez prikazivanja dijaloga. Ako korisnik odbije, korisnik dobija poruku da koristi **Add** za upload umesto Capture.
+
+Settings panel prikazuje status page access permisije (Granted/Grant dugme).
+
+---
+
+## Editor popup kontekst
 
 Annotation editor se otvara kao `chrome.windows.create({ type: 'popup' })` — bez Chrome toolbara, kao čist aplikacijski prozor.
 
@@ -160,7 +245,7 @@ Annotation editor se otvara kao `chrome.windows.create({ type: 'popup' })` — b
 // SingleMode.tsx — openEditor()
 chrome.windows.create({
   type: 'popup',
-  url: chrome.runtime.getURL('editor.html') + '?mode=' + mode + '&index=' + index,
+  url: chrome.runtime.getURL('editor.html'),
   width: bounds?.width ?? 1000,
   height: bounds?.height ?? 700,
   left: bounds?.left,
@@ -170,6 +255,8 @@ chrome.windows.create({
 });
 ```
 
+URL ne sadrži query parametre. Svi podaci putuju kroz `chrome.storage.local`.
+
 ### pendingEditor / annotationResult storage protokol
 
 Dva privremena ključa u `chrome.storage.local` služe kao most između Side Panel-a i editor popupa:
@@ -177,9 +264,25 @@ Dva privremena ključa u `chrome.storage.local` služe kao most između Side Pan
 | Ključ | Piše | Čita | Briše |
 |-------|------|------|-------|
 | `pendingEditor` | `SingleMode.openEditor` | `AnnotationEditor` on mount | `SingleMode` ANNOTATION_DONE listener |
-| `annotationResult` | `AnnotateMode` (Done) | `SingleMode` ANNOTATION_DONE listener | `SingleMode` ANNOTATION_DONE listener |
+| `annotationResult` | `AnnotateMode` (Save) | `SingleMode` ANNOTATION_DONE listener | `SingleMode` ANNOTATION_DONE listener |
 
-Flow: Side Panel upisuje `pendingEditor` → otvara popup → popup čita i prikazuje screenshot → "Done" upisuje `annotationResult` + šalje `ANNOTATION_DONE` message → Side Panel čita result, zamenjuje thumbnail, briše oba ključa.
+**pendingEditor** sadrži `{ dataUrl, screenshotId }`. Screenshot ID se koristi umesto array indexa zato što korisnik može da obriše screenshot dok je editor popup otvoren — index-based matching bi napisao anotaciju na pogrešnu sliku.
+
+**annotationResult** sadrži `{ dataUrl, screenshotId }`. Ako screenshot sa datim ID-om više ne postoji (obrisan je), rezultat se tiho odbacuje.
+
+Flow: Side Panel upisuje `pendingEditor` → otvara popup → popup čita i prikazuje screenshot → "Save" upisuje `annotationResult` + šalje `ANNOTATION_DONE` message → Side Panel čita result, proverava da li screenshot postoji, zamenjuje thumbnail ako postoji, briše oba ključa.
+
+### Editor state machine
+
+Editor ima dva stanja dugmadi:
+- **Close** — kad je canvas prazan (bez objekata). Klik zatvara prozor bez potvrde.
+- **Cancel + Save** — kad je canvas prljav (ima objekata). Cancel traži potvrdu ("Discard annotations?"). Save izvozi annotated sliku i šalje nazad u Side Panel.
+
+Escape taster: ako je canvas prljav, otvara confirm dialog; ako je prazan, zatvara.
+
+### Crop tool
+
+Crop radi u editoru: korisnik bira region, Apply konvertuje u image-space koordinate, iseče sliku, i postavlja novi background. Crop je blokiran kad canvas ima objekte (annotated) — zaštita od gubitka anotacija. Undo posle cropa vraća punu sliku i originalne dimenzije.
 
 ### editorWindowId guard (jedan popup istovremeno)
 
@@ -187,6 +290,7 @@ Flow: Side Panel upisuje `pendingEditor` → otvara popup → popup čita i prik
 - Ako je `editorWindowId !== null`, pokušava `chrome.windows.update(id, { focused: true })` umesto otvaranja novog prozora.
 - Ako update bacit grešku (prozor je zatvoren), resetuje `editorWindowId = null` i otvara novi.
 - Na `ANNOTATION_DONE` message: resetuje `editorWindowId = null`.
+- `chrome.windows.onRemoved` listener: resetuje `editorWindowId` ako je prozor zatvoren spolja.
 
 ### onBoundsChanged debounce pattern
 
@@ -208,10 +312,13 @@ chrome.windows.onBoundsChanged.addListener(listener);
 
 ## Poznate zamke
 
-1. ~~**`accountId` ključ se čita ali se nikad ne upisuje.**~~ — **Popravljeno.** `Settings.handleSave` sada snima `accountId` i u `auth` objekat i kao top-level `accountId` ključ (`setLocal('accountId', accountId)`). `SidePanel` auth gate čita top-level ključ i radi ispravno.
+1. **`accountId` ključ se čita ali se nikad ne upisuje.** — **Popravljeno.** `Settings.handleSave` sada snima `accountId` i u `auth` objekat i kao top-level `accountId` ključ (`setLocal('accountId', accountId)`). `SidePanel` auth gate čita top-level ključ i radi ispravno.
 2. **select/option defaults kao goli string** — rešeno preko `serializeField`, ali samo za tipove iz tabele gore. Egzotičniji custom tipovi (cascading select, version, component) padaju u `default` granu i idu kao string → mogu vratiti 400.
 3. **Worker restart recovery za bulk.** Implementiran `resumeBulkIfNeeded()`: posle restarta workera, ako `jirawm_bulk_progress` sadrži taskove koji nisu `done`/`failed`, worker automatski nastavlja obradu. Task sa statusom `uploading` i postojećim `issueKey` nastavlja samo kačenjem screenshota (bez ponovnog kreiranja). Task sa statusom `creating` i bez `issueKey` se NE automatski ponovo kreira — označava se kao `failed` sa porukom `Bulk processing was interrupted while creating the Jira issue. Retry manually to avoid a possible duplicate.`, a korisnik ga može retry-ovati iz UI-a. In-memory guard (`activeBulkRun`) sprečava paralelno pokretanje više bulk obrada ako `START_BULK` poruka stigne dok recovery još traje.
-4. **Dead code za komandu.** Manifest koristi rezervisanu `_execute_action`; svaki stari `chrome.commands.onCommand` listener za `open-jirawm` se nikad ne okida (trenutno je uklonjen iz workera, ali paziti pri dodavanju novih komandi).
+4. **Capture must stay PNG (double compression trap).** `captureVisibleTab` poziv koristi `format: 'png'`. Ako se promeni na `format: 'jpeg'`, normalizeImage ce kompresovati JPEG u JPEG — dvostruka kompresija koja primecuje omeksavanje teksta. PNG je transient i nikad se ne cuva.
+5. **`chrome.permissions.request` i user gesture requirement.** Chrome zahteva da se `chrome.permissions.request` pozove sinhrono unutar click handlera — bilo koji `await` pre njega uzrokuje da Chrome odbaci zahtev tiho, bez konzolne greške. Ovo je lako promašiti jer se handleCapture normalno await-uje.
+6. **Crop konvertuje screen space u image space.** Crop rectangle se crta u screen koordinatama, ali se konvertuje u image-space koristeći `1 / scale` faktor. Pogrešan scale factor (npr. korišćenje CSS umesto display scale) crops plausible ali pogrešnu region.
+7. **Crop je blokiran kad canvas ima objekte.** Crop dugme je disabled kad je `isDirty === true` (canvas ima objekte). Ovo je namerno — crop bez anotacija je siguran, crop sa anotacijama može iseći deo anotacija.
 
 ---
 
@@ -235,6 +342,6 @@ npx tsc --noEmit     # type check, pre svakog commita
 |----------|------------------------|
 | Side Panel (UI) | Desni klik unutar panela → **Inspect** |
 | Service Worker | `chrome://extensions` → kartica ekstenzije → **service worker** (link) → otvara DevTools workera |
-| Editor Tab (buduće) | Standardni DevTools u tom tabu (F12) |
+| Editor Popup | Desni klik unutar popupa → **Inspect** |
 
 Svaki kontekst ima **svoju** konzolu — `console.log` iz workera se NE vidi u Side Panel DevTools i obrnuto.

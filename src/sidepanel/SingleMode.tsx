@@ -158,7 +158,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     const bounds = await readEditorBounds();
     const createData: chrome.windows.CreateData = {
       type: 'popup',
-      url: chrome.runtime.getURL('editor.html') + '?index=' + index,
+      url: chrome.runtime.getURL('editor.html'),
       width: bounds?.width ?? 1000,
       height: bounds?.height ?? 700,
     };
