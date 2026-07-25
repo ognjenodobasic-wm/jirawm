@@ -85,7 +85,6 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
   const [cropDragging, setCropDragging] = useState(false);
   const [cropMode, setCropMode] = useState(false);
   const cropStartRef = useRef<{ x: number; y: number } | null>(null);
-  const cropRectRef = useRef<HTMLDivElement | null>(null);
 
   // Capture details state
   const initialOverridesRef = useRef<MetadataOverrides | null>(normalizeOverrides(metadataOverrides));
@@ -296,6 +295,10 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
   }, [showPanel, handleResize]);
 
   useEffect(() => {
+    handleResize();
+  }, [cropMode, handleResize]);
+
+  useEffect(() => {
     const canvas = canvasInstanceRef.current;
     if (!canvas) return;
     canvas.isDrawingMode = false;
@@ -469,13 +472,6 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
         return;
       }
       if (e.key === 'Escape') { handleExitRequest(); return; }
-      if (e.key.toLowerCase() === 'v') { setActiveTool('select'); return; }
-      if (e.key.toLowerCase() === 'c') { if (!isDirty) startCropMode(); return; }
-      if (e.key.toLowerCase() === 'a') { setActiveTool('arrow'); return; }
-      if (e.key.toLowerCase() === 'r') { setActiveTool('rect'); return; }
-      if (e.key.toLowerCase() === 'm') { setActiveTool('marker'); return; }
-      if (e.key.toLowerCase() === 't') { setActiveTool('text'); return; }
-      if (e.key.toLowerCase() === 'f') { setActiveTool('rectFill'); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault(); e.shiftKey ? redo() : undo(); return;
       }
@@ -640,7 +636,6 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     const img = new Image();
     img.onload = () => {
       naturalSizeRef.current = { w: img.naturalWidth, h: img.naturalHeight };
-      handleResize();
       const fabricImg = new fabric.FabricImage(img, {
         scaleX: scaleRef.current,
         scaleY: scaleRef.current,
@@ -649,8 +644,9 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
         selectable: false,
         evented: false,
       });
-      canvas.backgroundImage = fabricImg;
       canvas.clear();
+      canvas.backgroundImage = fabricImg;
+      handleResize();
       canvas.renderAll();
 
       historyRef.current = historyRef.current.slice(0, historyCursorRef.current + 1);
@@ -705,7 +701,11 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     return (
       <button
         key={tool}
-        onClick={() => { if (!disabled) setActiveTool(tool); }}
+        onClick={() => {
+          if (disabled) return;
+          if (tool === 'crop') startCropMode();
+          else setActiveTool(tool);
+        }}
         title={title}
         disabled={disabled}
         style={{
@@ -739,7 +739,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     );
   };
 
-  const cropDisabled = isDirty;
+  const cropDisabled = canvasDirty;
 
   const mainContentHeight = cropMode
     ? `calc(100vh - ${TOOLBAR_HEIGHT + 32}px)`
@@ -840,7 +840,6 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
           <canvas ref={canvasRef} />
           {cropMode && cropSelection && (
             <div
-              ref={cropRectRef}
               style={{
                 position: 'absolute',
                 left: cropSelection.x,
@@ -848,7 +847,8 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
                 width: cropSelection.width,
                 height: cropSelection.height,
                 border: '1px solid #ffffff',
-                background: 'rgba(0,0,0,0.55)',
+                background: 'transparent',
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
                 pointerEvents: 'none',
               }}
             >
