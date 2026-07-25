@@ -178,9 +178,25 @@ export default function Settings({ onBack }: SettingsProps) {
           </div>
 
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium" style={{ color: 'var(--chrome-text-secondary)' }}>
-              API token
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium" style={{ color: 'var(--chrome-text-secondary)' }}>
+                API token
+              </span>
+              <a
+                href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs"
+                style={{
+                  color: 'var(--chrome-text-secondary)',
+                  textDecoration: 'none',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+              >
+                Generate token
+              </a>
+            </div>
             <div className="flex items-center gap-1">
               <input
                 type={showToken ? 'text' : 'password'}

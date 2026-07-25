@@ -190,6 +190,17 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     hasCapturePermission().then(setCapturePermission).catch(() => setCapturePermission(false));
   }, []);
 
+  // Re-check permission when the panel becomes visible again.
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        hasCapturePermission().then(setCapturePermission).catch(() => {});
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
   async function handleCapture() {
     if (isLoading || screenshots.length >= MAX_SCREENSHOTS) return;
     setPermissionMessage(null);
@@ -514,23 +525,44 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
             <Tooltip text="Up to 10 per task. Screenshots you capture here also record the page URL, viewport and browser. Files you add from disk do not." />
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCapture}
-              disabled={isLoading || screenshots.length >= MAX_SCREENSHOTS}
-              style={{
-                fontSize: 11,
-                padding: '4px 10px',
-                borderRadius: 4,
-                border: 'none',
-                background: 'var(--chrome-blue)',
-                color: '#fff',
-                cursor: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 'not-allowed' : 'pointer',
-                opacity: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 0.5 : 1,
-              }}
-            >
-              Capture
-            </button>
+            {capturePermission === false ? (
+              <span className="text-xs flex items-center gap-1" style={{ color: 'var(--chrome-text-secondary)' }}>
+                Screenshot dozvola nije odobrena.
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="text-xs"
+                  style={{
+                    color: 'var(--chrome-blue)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Podesi u opcijama ekstenzije
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCapture}
+                disabled={isLoading || screenshots.length >= MAX_SCREENSHOTS}
+                style={{
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                  border: 'none',
+                  background: 'var(--chrome-blue)',
+                  color: '#fff',
+                  cursor: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 'not-allowed' : 'pointer',
+                  opacity: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 0.5 : 1,
+                }}
+              >
+                Capture
+              </button>
+            )}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
