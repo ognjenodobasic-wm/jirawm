@@ -148,6 +148,10 @@ export interface WindowBounds {
 export interface PendingEditor {
   dataUrl: string;
   screenshotId: string;
+  origin: 'capture' | 'upload';
+  metadata: CaptureMetadata | null;
+  metadataOverrides: MetadataOverrides | null;
+  captureDetailsSettings: CaptureDetailsSettings | null;
 }
 
 export interface AnnotationResult {
