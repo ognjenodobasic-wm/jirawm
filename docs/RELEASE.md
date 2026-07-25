@@ -35,7 +35,7 @@ Ovaj dokument opisuje korake za pripremu i objavljivanje nove JiraWM verzije. Sv
    git push --tags
    ```
 
-   **VAŽNO:** Git tag mora biti u formatu `v{version}` i mora se poklapati sa verzijom u `manifest.json`. Ako se ne poklapaju, GitHub Action će odbiti objavljivanje. Na primer, ako je verzija u manifestu `2.1.0`, tag mora biti `v2.1.0`.
+   **VAŽNO:** Git tag mora biti u formatu `v{version}` i mora se poklapati sa verzijom u `manifest.json`. Ako se ne poklapaju, GitHub Action će odbiti objavljivanje. Na primer, ako je verzija u manifestu `vX.Y.Z`, tag mora biti `vX.Y.Z`.
 
 7. **GitHub Action objavljuje Release**
    Nakon push-a taga, `.github/workflows/release.yml` će automatski:

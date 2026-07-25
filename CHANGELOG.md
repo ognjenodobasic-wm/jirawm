@@ -1,6 +1,6 @@
 # JiraWM — Changelog
 
-## 2.1.0 — Release packaging
+## 3.1.0 — Release packaging
 
 ### Added
 - Stable extension ID via manifest `key` field.
