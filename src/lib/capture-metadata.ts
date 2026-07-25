@@ -9,8 +9,28 @@ function parseBrowser(): { browser: string | null; os: string | null } {
   const uaData = (navigator as Navigator & { userAgentData?: NavigatorUAData }).userAgentData;
   if (uaData) {
     const brands = uaData.brands;
-    const brand = brands.find((b: { brand: string; version: string }) => b.brand !== 'Not(A:Brand' && b.brand !== 'Not?A_Brand');
-    const browser = brand ? `${brand.brand} ${brand.version}` : null;
+    // Filter out fake brands that contain "Not" or "Brand" (Chrome's fingerprinting noise)
+    const realBrands = brands.filter((b: { brand: string; version: string }) =>
+      !b.brand.includes('Not') && !b.brand.includes('Brand')
+    );
+
+    if (realBrands.length === 0) {
+      return { browser: null, os: null };
+    }
+
+    // Prefer specific brands in order
+    const preferredNames = ['Google Chrome', 'Microsoft Edge', 'Brave', 'Opera'];
+    let selectedBrand = realBrands.find((b: { brand: string; version: string }) =>
+      preferredNames.includes(b.brand)
+    ) || realBrands[0];
+
+    // Strip "Google " prefix for display
+    let browserName = selectedBrand.brand;
+    if (browserName.startsWith('Google ')) {
+      browserName = browserName.slice(7);
+    }
+
+    const browser = `${browserName} ${selectedBrand.version}`;
     const os = uaData.platform || null;
     return { browser, os };
   }

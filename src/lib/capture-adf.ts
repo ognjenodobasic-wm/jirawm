@@ -17,16 +17,13 @@ function paragraph(text: string, strong = false): ADFParagraphNode {
 export function formatTimestamp(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  const offset = -date.getTimezoneOffset();
-  const abs = Math.abs(offset);
-  const sign = offset >= 0 ? '+' : '-';
-  const hours = String(Math.floor(abs / 60)).padStart(2, '0');
-  const minutes = String(abs % 60).padStart(2, '0');
-  const tz = `UTC${sign}${hours}:${minutes}`;
-  return (
-    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ` +
-    `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} ${tz}`
-  );
+  // Serbian date format: dd.MM.yyyy. HH:mm
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}.${month}.${year}. ${hours}:${minutes}`;
 }
 
 /**
