@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import type { BulkTask, Workflow } from '../types';
-import { getLocal, setLocal } from '../lib/storage';
-import { normalizeImage } from '../lib/image';
+import type { BulkTask, Workflow, AppSettings, ImageSettings } from '../types';
+import { getLocal, setLocal, getAppSettings } from '../lib/storage';
+import { normalizeImage, toJpegFilename } from '../lib/image';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 import AssigneeSelect from './components/AssigneeSelect';
 
@@ -35,23 +35,47 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   const [isProcessing, setIsProcessing] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxPreview, setLightboxPreview] = useState<string | null>(null);
+  const [numberBulkFiles, setNumberBulkFiles] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastAppliedWorkflowIdRef = useRef<string>('');
 
   const activeWorkflow = workflows.find((w) => w.id === selectedWorkflowId) ?? null;
 
+  useEffect(() => {
+    getAppSettings().then((settings) => {
+      setNumberBulkFiles(settings.naming.numberBulkFiles);
+    });
+  }, []);
+
+  function buildImageSettings(app: AppSettings | null): ImageSettings {
+    return {
+      quality: app?.image.quality ?? 0.85,
+      maxWidth: app?.image.maxWidth ?? 1920,
+      transparencyFill: app?.image.transparencyFill ?? 'white',
+    };
+  }
+
+  function assignBulkFilenames(rowsToName: BulkRow[]): BulkRow[] {
+    if (!numberBulkFiles) return rowsToName;
+    return rowsToName.map((row, index) => {
+      const base = toJpegFilename(row.filename).replace(/\.jpg$/, '');
+      return { ...row, filename: `${index + 1} - ${base}.jpg` };
+    });
+  }
+
   const addFiles = useCallback(async (files: FileList | null) => {
     if (!files) return;
     const defaultAssignee = activeWorkflow?.defaultAssignee ?? null;
     const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
 
-    const settings = { quality: 0.85, maxWidth: 1920, transparencyFill: 'white' as const };
+    const app = await getAppSettings();
+    const imageSettings = buildImageSettings(app);
 
     const newRows: BulkRow[] = [];
     for (const file of imageFiles) {
       try {
-        const { dataUrl } = await normalizeImage(file, settings);
+        const { dataUrl } = await normalizeImage(file, imageSettings);
         newRows.push({
           id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           dataUrl,
@@ -66,8 +90,12 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
         console.error('Failed to ingest file:', file.name, err);
       }
     }
-    setRows((prev) => [...prev, ...newRows]);
-  }, [activeWorkflow?.defaultAssignee]);
+    setRows((prev) => assignBulkFilenames([...prev, ...newRows]));
+  }, [activeWorkflow?.defaultAssignee, numberBulkFiles]);
+
+  function removeRow(id: string) {
+    setRows((prev) => assignBulkFilenames(prev.filter((r) => r.id !== id)));
+  }
 
   // Apply workflow default assignee to existing rows only on first workflow selection.
   useEffect(() => {
@@ -124,10 +152,6 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
 
   function updateAssignee(id: string, assignee: string | null) {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, assignee } : row)));
-  }
-
-  function removeRow(id: string) {
-    setRows((prev) => prev.filter((r) => r.id !== id));
   }
 
   function clearAll() {
@@ -304,7 +328,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
             paddingRight: '4px',
           }}
         >
-          {rows.map((row, index) => (
+          {rows.map((row) => (
             <div
               key={row.id}
               className="rounded p-2 space-y-2"
@@ -328,10 +352,11 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
                   }}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium" style={{ color: 'var(--chrome-text-secondary)' }}>
-                    #{index + 1}
-                  </div>
-                  <div className="text-xs truncate" style={{ color: 'var(--chrome-text-primary)' }}>
+                  <div
+                    className="text-xs truncate"
+                    style={{ color: 'var(--chrome-text-primary)' }}
+                    title={row.filename}
+                  >
                     {row.filename}
                   </div>
                 </div>
