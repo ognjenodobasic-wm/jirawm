@@ -1,5 +1,13 @@
 export type TransparencyFill = 'white' | 'black';
 export type MetadataPosition = 'top' | 'bottom';
+export type CaptureDetailKey = 'url' | 'pageTitle' | 'timestamp' | 'viewport' | 'browser';
+
+export type CaptureDetailOverride = {
+  enabled: boolean;
+  value: string;
+};
+
+export type MetadataOverrides = Partial<Record<CaptureDetailKey, CaptureDetailOverride>>;
 
 export interface ImageSettings {
   quality: number; // 0.6 - 1.0, default 0.85
@@ -21,6 +29,7 @@ export interface CaptureDetailsSettings {
   includeViewport: boolean; // default true
   includeBrowser: boolean; // default true
   stripQueryParams: boolean; // default true
+  allowPerScreenshotEdit: boolean; // default true
 }
 
 export interface AppSettings {
@@ -126,6 +135,7 @@ export interface ScreenshotItem {
   number: number | null; // sequence number, null when numbering is off
   filename: string; // final attachment filename, e.g. "1.jpg"
   metadata: CaptureMetadata | null; // only when origin === 'capture'
+  metadataOverrides: MetadataOverrides | null;
 }
 
 export interface WindowBounds {
@@ -138,6 +148,10 @@ export interface WindowBounds {
 export interface PendingEditor {
   dataUrl: string;
   screenshotId: string;
+  origin: 'capture' | 'upload';
+  metadata: CaptureMetadata | null;
+  metadataOverrides: MetadataOverrides | null;
+  captureDetailsSettings: CaptureDetailsSettings | null;
 }
 
 export interface AnnotationResult {

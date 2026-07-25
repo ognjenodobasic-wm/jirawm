@@ -66,6 +66,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     includeViewport: true,
     includeBrowser: true,
     stripQueryParams: true,
+    allowPerScreenshotEdit: true,
   },
 };
 

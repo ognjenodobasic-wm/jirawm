@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AuthConfig, Workflow, ScreenshotItem, WindowBounds, AnnotationResult, AppSettings, NamingSettings } from '../types';
+import type { AuthConfig, Workflow, ScreenshotItem, WindowBounds, AnnotationResult, AppSettings, NamingSettings, MetadataOverrides } from '../types';
 import { getLocal, setLocal, getAppSettings } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/jira';
 import { normalizeImage, readImageSize, toJpegFilename } from '../lib/image';
 import { collectCaptureMetadata } from '../lib/capture-metadata';
-import { buildDescriptionADF, buildCaptureDetailLines } from '../lib/capture-adf';
+import { buildDescriptionADF, buildCaptureDetailLines, hasMetadataOverrides } from '../lib/capture-adf';
 import { hasCapturePermission, requestCapturePermission } from '../lib/permissions';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 import AssigneeSelect from './components/AssigneeSelect';
@@ -134,6 +134,15 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
           }
           setEditorWindowId(null);
         });
+      } else if (msg.type === 'CAPTURE_DETAILS_UPDATED') {
+        const { screenshotId, overrides } = msg as {
+          type: string;
+          screenshotId: string;
+          overrides: MetadataOverrides | null;
+        };
+        setScreenshots((prev) =>
+          prev.map((s) => (s.id === screenshotId ? { ...s, metadataOverrides: overrides } : s)),
+        );
       }
     };
     chrome.runtime.onMessage.addListener(listener);
@@ -195,6 +204,10 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     await setLocal('pendingEditor', {
       dataUrl: screenshot.dataUrl,
       screenshotId: screenshot.id,
+      origin: screenshot.origin,
+      metadata: screenshot.metadata,
+      metadataOverrides: screenshot.metadataOverrides,
+      captureDetailsSettings: appSettings?.captureDetails ?? null,
     });
     const bounds = await readEditorBounds();
     const createData: chrome.windows.CreateData = {
@@ -288,6 +301,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         number,
         filename,
         metadata,
+        metadataOverrides: null,
       };
       setScreenshots((prev) => [...prev, item]);
       setSelectedId(item.id);
@@ -319,6 +333,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
           number,
           filename,
           metadata: null,
+          metadataOverrides: null,
         };
         setScreenshots((prev) => [...prev, item]);
       } catch (err) {
@@ -409,6 +424,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         includeViewport: true,
         includeBrowser: true,
         stripQueryParams: true,
+        allowPerScreenshotEdit: true,
       };
       const descriptionADF = buildDescriptionADF(description.trim(), screenshots, position, detailsSettings);
 
@@ -695,6 +711,28 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
                       }}
                     >
                       ✎
+                    </div>
+                  )}
+                  {item.origin === 'capture' && hasMetadataOverrides(item) && (
+                    <div
+                      title="Capture details edited"
+                      style={{
+                        position: 'absolute',
+                        top: 18,
+                        right: 2,
+                        width: 14,
+                        height: 14,
+                        borderRadius: '50%',
+                        background: 'var(--chrome-blue)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <path d="M5 0.5L7.5 3L2.5 8H0V5.5L5 0.5Z" fill="white" />
+                      </svg>
                     </div>
                   )}
                   {item.number !== null && (
