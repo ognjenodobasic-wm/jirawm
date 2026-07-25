@@ -831,6 +831,17 @@ function FeedbackSection() {
 
 const CHANGELOG_DATA = [
   {
+    version: '3.1.0',
+    date: 'Juli 2026',
+    items: [
+      'Capture details can now be edited per screenshot from the preview panel',
+      'Individual details can be toggled off before the task is created',
+      'Edited screenshots are marked with a badge in the side panel',
+      'New Settings option controls whether per-screenshot editing is available',
+      'Screenshot preview and annotation now share a single editor window',
+    ],
+  },
+  {
     version: '3.0.1',
     date: 'Juli 2026',
     items: [
