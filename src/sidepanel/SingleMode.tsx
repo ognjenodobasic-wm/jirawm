@@ -550,6 +550,8 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
               padding: 8,
               overflowX: 'auto',
               overflowY: 'hidden',
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'var(--chrome-border) transparent',
             }}
           >
             {screenshots.length === 0 && (
