@@ -483,20 +483,34 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
 
   function applyCrop() {
     const canvas = canvasInstanceRef.current;
-    if (!canvas || !cropSelection) return;
+    const container = containerRef.current;
+    const canvasEl = canvasRef.current;
+    if (!canvas || !container || !canvasEl || !cropSelection) return;
     const { w: naturalW, h: naturalH } = naturalSizeRef.current;
     if (!naturalW || !naturalH) return;
 
+    const containerRect = container.getBoundingClientRect();
+    const canvasRect = canvasEl.getBoundingClientRect();
+    const offsetX = canvasRect.left - containerRect.left;
+    const offsetY = canvasRect.top - containerRect.top;
+
     const scale = scaleRef.current;
     const invScale = 1 / scale;
-    const crop = {
-      x: Math.max(0, Math.round(cropSelection.x * invScale)),
-      y: Math.max(0, Math.round(cropSelection.y * invScale)),
-      width: Math.min(naturalW - Math.round(cropSelection.x * invScale), Math.round(cropSelection.width * invScale)),
-      height: Math.min(naturalH - Math.round(cropSelection.y * invScale), Math.round(cropSelection.height * invScale)),
-    };
 
-    if (crop.width < 20 || crop.height < 20) return;
+    // Convert container-relative selection into canvas-relative image-space coordinates.
+    let imgX = Math.round((cropSelection.x - offsetX) * invScale);
+    let imgY = Math.round((cropSelection.y - offsetY) * invScale);
+    let imgW = Math.round(cropSelection.width * invScale);
+    let imgH = Math.round(cropSelection.height * invScale);
+
+    // Clamp to image bounds and minimum size.
+    imgX = Math.max(0, Math.min(imgX, naturalW - 1));
+    imgY = Math.max(0, Math.min(imgY, naturalH - 1));
+    imgW = Math.max(0, Math.min(imgW, naturalW - imgX));
+    imgH = Math.max(0, Math.min(imgH, naturalH - imgY));
+
+    if (imgW < 20 || imgH < 20) return;
+    const crop = { x: imgX, y: imgY, width: imgW, height: imgH };
 
     const bgImg = canvas.backgroundImage;
     if (!(bgImg instanceof fabric.FabricImage)) return;
