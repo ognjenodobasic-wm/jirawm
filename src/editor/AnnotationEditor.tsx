@@ -1,22 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useEditorTransfer } from './useEditorTransfer';
 import { useWindowBounds } from './useWindowBounds';
-import PreviewMode from './PreviewMode';
 import AnnotateMode from './AnnotateMode';
-import type { EditorMode, PendingEditor } from '../types';
+import type { PendingEditor } from '../types';
 
 export default function AnnotationEditor() {
-  const [mode, setMode] = useState<EditorMode | null>(null);
   const [pending, setPending] = useState<PendingEditor | null>(null);
   const [loading, setLoading] = useState(true);
   const { readPendingEditor, writeAnnotationResult, cleanup } = useEditorTransfer();
   useWindowBounds();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlMode = params.get('mode') as EditorMode | null;
-    setMode(urlMode);
-
     readPendingEditor().then((data) => {
       setPending(data);
       setLoading(false);
@@ -60,34 +54,26 @@ export default function AnnotationEditor() {
     );
   }
 
-  if (mode === 'preview') {
-    return <PreviewMode dataUrl={pending.dataUrl} thumbnailIndex={pending.thumbnailIndex} />;
-  }
-
   async function handleDone(resultDataUrl: string) {
     if (!pending) return;
     await writeAnnotationResult({ dataUrl: resultDataUrl, thumbnailIndex: pending.thumbnailIndex });
     chrome.runtime.sendMessage({ type: 'ANNOTATION_DONE' });
     const win = await chrome.windows.getCurrent();
-    chrome.windows.remove(win.id!);
+    if (win.id) chrome.windows.remove(win.id);
   }
 
   async function handleCancel() {
     await cleanup();
     const win = await chrome.windows.getCurrent();
-    chrome.windows.remove(win.id!);
+    if (win.id) chrome.windows.remove(win.id);
   }
 
-  if (mode === 'annotate') {
-    return (
-      <AnnotateMode
-        dataUrl={pending.dataUrl}
-        thumbnailIndex={pending.thumbnailIndex}
-        onDone={handleDone}
-        onCancel={handleCancel}
-      />
-    );
-  }
-
-  return null;
+  return (
+    <AnnotateMode
+      dataUrl={pending.dataUrl}
+      thumbnailIndex={pending.thumbnailIndex}
+      onDone={handleDone}
+      onCancel={handleCancel}
+    />
+  );
 }
