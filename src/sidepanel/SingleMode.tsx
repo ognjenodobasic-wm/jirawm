@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AuthConfig, Workflow, CompressionSettings, ScreenshotItem, EditorMode, WindowBounds, AnnotationResult } from '../types';
-import { getLocal, setLocal } from '../lib/storage';
+import type { AuthConfig, Workflow, ScreenshotItem, WindowBounds, AnnotationResult, AppSettings, NamingSettings } from '../types';
+import { getLocal, setLocal, getAppSettings } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/jira';
+import { normalizeImage, readImageSize, toJpegFilename } from '../lib/image';
+import { collectCaptureMetadata } from '../lib/capture-metadata';
+import { buildDescriptionADF } from '../lib/capture-adf';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 import AssigneeSelect from './components/AssigneeSelect';
+import Tooltip from './components/Tooltip';
 
 interface HistoryEntry {
   key: string;
@@ -19,33 +23,17 @@ interface SingleModeProps {
   onOpenSettings: () => void;
 }
 
-function resizeImage(dataUrl: string, maxWidth: number, quality: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxWidth / img.naturalWidth);
-      const width = Math.round(img.naturalWidth * scale);
-      const height = Math.round(img.naturalHeight * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Could not create canvas context'));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-    img.onerror = () => reject(new Error('Failed to load captured image'));
-    img.src = dataUrl;
-  });
-}
-
 const MAX_SCREENSHOTS = 10;
 
 async function readEditorBounds(): Promise<WindowBounds | null> {
   return getLocal<WindowBounds>('editorWindowBounds');
+}
+
+function buildImageSettings(app: AppSettings | null, workflow: Workflow | null) {
+  const quality = workflow?.compression.quality ?? app?.image.quality ?? 0.85;
+  const maxWidth = workflow?.compression.maxWidth ?? app?.image.maxWidth ?? 1920;
+  const transparencyFill = app?.image.transparencyFill ?? 'white';
+  return { quality, maxWidth, transparencyFill };
 }
 
 export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, onOpenSettings }: SingleModeProps) {
@@ -62,12 +50,17 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   const [error, setError] = useState<string | null>(null);
   const [resultKey, setResultKey] = useState<string | null>(null);
   const [attachFailed, setAttachFailed] = useState(false);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const dragIdRef = useRef<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [globalCompression, setGlobalCompression] = useState<CompressionSettings>({ quality: 0.85, maxWidth: 1920 });
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const [naming, setNaming] = useState<NamingSettings>({ numberSingleScreenshots: true, numberBulkFiles: true });
   const [editorWindowId, setEditorWindowId] = useState<number | null>(null);
+  const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
+  const [capturePermission, setCapturePermission] = useState<boolean | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showFade, setShowFade] = useState(false);
+  const counterRef = useRef(1);
 
   // Cleanup stale editor data from previous sessions
   useEffect(() => {
@@ -75,8 +68,9 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   }, []);
 
   useEffect(() => {
-    getLocal<CompressionSettings>('jirawm_compression').then((c) => {
-      if (c) setGlobalCompression(c);
+    getAppSettings().then((settings) => {
+      setAppSettings(settings);
+      setNaming(settings.naming);
     });
   }, []);
 
@@ -119,6 +113,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setResultKey(null);
     setAttachFailed(false);
     setError(null);
+    counterRef.current = 1;
   }, [workflows, selectedWorkflowId]);
 
   function resetForm() {
@@ -131,9 +126,10 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setAttachFailed(false);
     setError(null);
     setShowSuccess(false);
+    counterRef.current = 1;
   }
 
-  async function openEditor(mode: EditorMode, index: number) {
+  async function openEditor(index: number) {
     if (editorWindowId !== null) {
       try {
         await new Promise<void>((resolve, reject) => {
@@ -152,12 +148,11 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     await setLocal('pendingEditor', {
       dataUrl: screenshot.dataUrl,
       thumbnailIndex: index,
-      mode,
     });
     const bounds = await readEditorBounds();
     const createData: chrome.windows.CreateData = {
       type: 'popup',
-      url: chrome.runtime.getURL('editor.html') + '?mode=' + mode + '&index=' + index,
+      url: chrome.runtime.getURL('editor.html') + '?index=' + index,
       width: bounds?.width ?? 1000,
       height: bounds?.height ?? 700,
     };
@@ -185,20 +180,60 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     });
   }
 
+  async function ensureCapturePermission(): Promise<boolean> {
+    if (capturePermission === null) {
+      const granted = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+      setCapturePermission(granted);
+      return granted;
+    }
+    return capturePermission;
+  }
+
   async function handleCapture() {
     if (isLoading || screenshots.length >= MAX_SCREENSHOTS) return;
+    setPermissionMessage(null);
+    const hasPermission = await ensureCapturePermission();
+    if (!hasPermission) {
+      const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
+      setCapturePermission(granted);
+      if (!granted) {
+        setPermissionMessage(
+          'Screenshot capture needs permission to read the current page. Use Add to upload an image instead, or click Capture again to grant it.',
+        );
+        return;
+      }
+    }
+
     try {
       setError(null);
-      const quality = activeWorkflow?.compression.quality ?? globalCompression.quality ?? 0.85;
-      const maxWidth = activeWorkflow?.compression.maxWidth ?? globalCompression.maxWidth ?? 1920;
-      const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+      const settings = appSettings;
+      const imageSettings = buildImageSettings(settings, activeWorkflow);
+      const tab = await chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => tabs[0] ?? null);
+      const tabId = tab?.id ?? -1;
+
+      const rawDataUrl = await chrome.tabs.captureVisibleTab(null, {
         format: 'jpeg',
-        quality: Math.round(quality * 100),
+        quality: Math.round(imageSettings.quality * 100),
       });
-      const resized = await resizeImage(dataUrl, maxWidth, quality);
+      const { width: rawWidth, height: rawHeight } = await readImageSize(rawDataUrl);
+
+      const metadata =
+        tabId >= 0 && settings
+          ? await collectCaptureMetadata(tabId, rawWidth, rawHeight, settings.captureDetails)
+          : null;
+
+      const { dataUrl } = await normalizeImage(rawDataUrl, imageSettings);
+
+      const number = naming.numberSingleScreenshots ? counterRef.current++ : null;
+      const filename = number !== null ? `${number}.jpg` : toJpegFilename('screenshot.jpg');
+
       const item: ScreenshotItem = {
         id: crypto.randomUUID(),
-        dataUrl: resized,
+        dataUrl,
+        origin: 'capture',
+        number,
+        filename,
+        metadata,
       };
       setScreenshots((prev) => [...prev, item]);
       setSelectedId(item.id);
@@ -207,6 +242,39 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  async function handleFiles(files: FileList | null) {
+    if (!files) return;
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    const imageSettings = buildImageSettings(appSettings, activeWorkflow);
+
+    for (const file of imageFiles) {
+      if (screenshots.length >= MAX_SCREENSHOTS) break;
+      try {
+        const { dataUrl } = await normalizeImage(file, imageSettings);
+        const number = naming.numberSingleScreenshots ? counterRef.current++ : null;
+        const filename = number !== null ? `${number}.jpg` : toJpegFilename(file.name);
+        const item: ScreenshotItem = {
+          id: crypto.randomUUID(),
+          dataUrl,
+          origin: 'upload',
+          number,
+          filename,
+          metadata: null,
+        };
+        setScreenshots((prev) => [...prev, item]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }
+    setResultKey(null);
+    setAttachFailed(false);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    void handleFiles(e.target.files);
+    e.target.value = '';
   }
 
   function handleRemove(id: string) {
@@ -226,7 +294,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       const next: ScreenshotItem[] = [];
       for (const item of screenshots) {
         try {
-          await attachScreenshot(resultKey, item.dataUrl, `${resultKey}-${item.id}.jpg`);
+          await attachScreenshot(resultKey, item.dataUrl, item.filename);
           next.push({ ...item });
         } catch (attachErr) {
           next.push({ ...item });
@@ -271,9 +339,12 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       setAuth(auth);
       setDomain(auth.domain);
 
+      const position = appSettings?.captureDetails.position ?? 'bottom';
+      const descriptionADF = buildDescriptionADF(description.trim(), screenshots, position);
+
       const fields: Record<string, unknown> = {
         ...buildWorkflowFields(activeWorkflow),
-        description: description.trim(),
+        description: descriptionADF,
       };
 
       if (assignee) {
@@ -294,17 +365,19 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       });
 
       let uploadedCount = 0;
-      let failedItems: ScreenshotItem[] = [];
+      const next: ScreenshotItem[] = [];
       for (const item of screenshots) {
         try {
-          await attachScreenshot(issue.key, item.dataUrl, `${issue.key}-${item.id}.jpg`);
+          await attachScreenshot(issue.key, item.dataUrl, item.filename);
           uploadedCount++;
+          next.push({ ...item });
         } catch {
-          failedItems.push(item);
+          next.push({ ...item });
         }
       }
+      setScreenshots(next);
 
-      if (failedItems.length > 0) {
+      if (uploadedCount < screenshots.length) {
         setResultKey(issue.key);
         setAttachFailed(true);
         setError(`${uploadedCount}/${screenshots.length} screenshots uploaded`);
@@ -326,6 +399,24 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     }
   }
 
+  // Scroll fade affordance
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    function updateFade() {
+      if (!el) return;
+      setShowFade(el.scrollWidth > el.clientWidth && el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    }
+    updateFade();
+    el.addEventListener('scroll', updateFade);
+    const ro = new ResizeObserver(updateFade);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateFade);
+      ro.disconnect();
+    };
+  }, [screenshots.length]);
+
   const inputStyle: React.CSSProperties = {
     width: '100%',
     border: '1px solid var(--chrome-border)',
@@ -345,6 +436,8 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     color: 'var(--chrome-text-secondary)',
     marginBottom: '2px',
   };
+
+  const hasMetadata = screenshots.some((s) => s.metadata !== null);
 
   if (!isAuthed) {
     return <ConnectJiraPrompt onOpenSettings={onOpenSettings} />;
@@ -373,142 +466,210 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         </div>
       )}
 
-      <div>
-        <button
-          type="button"
-          onClick={handleCapture}
-          disabled={isLoading || screenshots.length >= MAX_SCREENSHOTS}
-          className="w-full rounded py-1.5 px-3 text-xs font-medium"
+      {/* Screenshot card */}
+      <div
+        style={{
+          border: '1px solid var(--chrome-border)',
+          borderRadius: 8,
+          background: 'var(--chrome-bg)',
+        }}
+      >
+        <div
+          className="flex items-center justify-between"
           style={{
-            border: '1px solid var(--chrome-border)',
-            background: 'var(--chrome-surface)',
-            color: 'var(--chrome-text-primary)',
-            cursor: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 'not-allowed' : 'pointer',
-            opacity: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 0.6 : 1,
+            padding: '8px 10px',
+            borderBottom: '1px solid var(--chrome-border)',
           }}
         >
-          {screenshots.length === 0 ? 'Capture Screenshot' : 'Add Screenshot'}
-        </button>
-
-        {screenshots.length > 0 && (
-          <div className="mt-2 space-y-1">
-            <div
-              className="flex gap-2"
+          <div className="flex items-center gap-1.5">
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--chrome-text-primary)' }}>
+              Screenshots
+            </span>
+            <span
               style={{
-                overflowX: 'auto',
-                paddingBottom: '4px',
+                fontSize: 11,
+                color: screenshots.length >= MAX_SCREENSHOTS ? 'var(--chrome-red)' : 'var(--chrome-text-secondary)',
               }}
             >
-              {screenshots.map((item, index) => (
+              ({screenshots.length}/{MAX_SCREENSHOTS})
+            </span>
+            <Tooltip text="Up to 10 per task. Screenshots you capture here also record the page URL, viewport and browser. Files you add from disk do not." />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCapture}
+              disabled={isLoading || screenshots.length >= MAX_SCREENSHOTS}
+              style={{
+                fontSize: 11,
+                padding: '4px 10px',
+                borderRadius: 4,
+                border: 'none',
+                background: 'var(--chrome-blue)',
+                color: '#fff',
+                cursor: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 'not-allowed' : 'pointer',
+                opacity: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 0.5 : 1,
+              }}
+            >
+              Capture
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || screenshots.length >= MAX_SCREENSHOTS}
+              style={{
+                fontSize: 11,
+                padding: '4px 10px',
+                borderRadius: 4,
+                border: '1px solid var(--chrome-border)',
+                background: 'transparent',
+                color: 'var(--chrome-text-primary)',
+                cursor: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 'not-allowed' : 'pointer',
+                opacity: isLoading || screenshots.length >= MAX_SCREENSHOTS ? 0.5 : 1,
+              }}
+            >
+              Add
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+          </div>
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          <div
+            ref={scrollContainerRef}
+            style={{
+              display: 'flex',
+              gap: 8,
+              padding: 8,
+              overflowX: 'auto',
+              overflowY: 'hidden',
+            }}
+          >
+            {screenshots.length === 0 && (
+              <div
+                style={{
+                  width: '100%',
+                  textAlign: 'center',
+                  fontSize: 11,
+                  color: 'var(--chrome-text-secondary)',
+                  padding: '12px 0',
+                }}
+              >
+                No screenshots yet — capture the page or add a file.
+              </div>
+            )}
+            {screenshots.map((item, index) => (
+              <div
+                key={item.id}
+                style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}
+              >
                 <div
-                  key={item.id}
-                  style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}
+                  onClick={() => { void openEditor(index); }}
+                  style={{
+                    position: 'relative',
+                    width: 64,
+                    height: 64,
+                    borderRadius: 4,
+                    border: `2px solid ${selectedId === item.id ? 'var(--chrome-blue)' : 'transparent'}`,
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                  }}
                 >
-                  <div
-                    draggable
-                    onClick={() => { void openEditor('preview', index); }}
-                    onDragStart={() => { dragIdRef.current = item.id; }}
-                    onDragOver={(e) => { e.preventDefault(); setDragOverId(item.id); }}
-                    onDrop={() => {
-                      if (!dragIdRef.current || dragIdRef.current === item.id) return;
-                      setScreenshots((prev) => {
-                        const from = prev.findIndex((s) => s.id === dragIdRef.current);
-                        const to = prev.findIndex((s) => s.id === item.id);
-                        if (from < 0 || to < 0) return prev;
-                        const next = [...prev];
-                        next.splice(to, 0, ...next.splice(from, 1));
-                        return next;
-                      });
-                      setDragOverId(null);
-                    }}
-                    onDragEnd={() => { dragIdRef.current = null; setDragOverId(null); }}
-                    style={{
-                      position: 'relative',
-                      width: 64,
-                      height: 64,
-                      borderRadius: 4,
-                      border: `2px solid ${selectedId === item.id ? 'var(--chrome-blue)' : 'transparent'}`,
-                      borderLeft: dragOverId === item.id ? '3px solid var(--chrome-blue)' : undefined,
-                      cursor: dragIdRef.current ? 'grabbing' : 'grab',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <img
-                      src={item.dataUrl}
-                      alt="Screenshot thumbnail"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2, pointerEvents: 'none' }}
-                    />
-                    {item.annotated && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '4px',
-                          right: '4px',
-                          background: '#1a73e8',
-                          color: '#ffffff',
-                          fontSize: '10px',
-                          padding: '1px 4px',
-                          borderRadius: '3px',
-                          lineHeight: '14px',
-                          pointerEvents: 'none',
-                        }}
-                      >
-                        ✎
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
-                      aria-label="Remove screenshot"
+                  <img
+                    src={item.dataUrl}
+                    alt="Screenshot thumbnail"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2, pointerEvents: 'none' }}
+                  />
+                  {item.annotated && (
+                    <div
                       style={{
                         position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        width: 16,
-                        height: 16,
-                        background: 'var(--chrome-red)',
+                        top: 4,
+                        left: 4,
+                        background: 'rgba(0,0,0,0.6)',
                         color: '#fff',
-                        border: 'none',
-                        borderRadius: '0 0 0 4px',
-                        fontSize: '10px',
-                        lineHeight: 1,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        fontSize: 10,
+                        padding: '2px 5px',
+                        borderRadius: 3,
+                        pointerEvents: 'none',
                       }}
                     >
-                      ×
-                    </button>
-                  </div>
+                      ✎
+                    </div>
+                  )}
+                  {item.number !== null && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 4,
+                        left: 4,
+                        background: 'rgba(0,0,0,0.6)',
+                        color: '#fff',
+                        fontSize: 10,
+                        padding: '2px 5px',
+                        borderRadius: 3,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      {item.number}
+                    </div>
+                  )}
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); void openEditor('annotate', index); }}
+                    onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
+                    aria-label="Remove screenshot"
                     style={{
-                      fontSize: 9,
-                      padding: '2px 8px',
-                      background: 'var(--chrome-surface)',
-                      border: '1px solid var(--chrome-border)',
-                      borderRadius: 2,
+                      position: 'absolute',
+                      top: 0,
+                      right: 0,
+                      width: 16,
+                      height: 16,
+                      background: 'var(--chrome-red)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '50%',
+                      fontSize: 10,
+                      lineHeight: 1,
                       cursor: 'pointer',
-                      color: 'var(--chrome-text-secondary)',
-                      lineHeight: 1.4,
-                      width: '100%',
-                      textAlign: 'center',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    Edit
+                    ×
                   </button>
                 </div>
-              ))}
-            </div>
-            <p className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
-              {screenshots.length} screenshot{screenshots.length === 1 ? '' : 's'}
-            </p>
+              </div>
+            ))}
           </div>
-        )}
-
+          {showFade && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: 24,
+                background: 'linear-gradient(to right, transparent, var(--chrome-bg))',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </div>
       </div>
+
+      {permissionMessage && (
+        <div className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
+          {permissionMessage}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-2">
         <div>
@@ -544,6 +705,10 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
             placeholder="Optional description"
           />
         </div>
+
+        {hasMetadata && (
+          <CaptureDetailsPreview screenshots={screenshots} />
+        )}
 
         {error && (
           <div
@@ -659,6 +824,52 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
           </div>
         )}
       </form>
+    </div>
+  );
+}
+
+function CaptureDetailsPreview({ screenshots }: { screenshots: ScreenshotItem[] }) {
+  const [open, setOpen] = useState(false);
+  const captureCount = screenshots.filter((s) => s.metadata !== null).length;
+  if (captureCount === 0) return null;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 11,
+          color: 'var(--chrome-text-secondary)',
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+        }}
+      >
+        <span style={{ display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}>
+          ▼
+        </span>
+        Capture details — {captureCount} screenshot{captureCount === 1 ? '' : 's'}
+        <Tooltip text="These details are not part of the text above. They are generated from the screenshots and merged into the description when the task is created." />
+      </button>
+      {open && (
+        <div style={{ marginTop: 4, fontSize: 11, color: 'var(--chrome-text-secondary)', lineHeight: 1.4 }}>
+          {screenshots
+            .filter((s) => s.metadata !== null)
+            .map((s) => (
+              <div key={s.id}>
+                {s.filename}
+                {s.metadata?.url && <div>URL — {s.metadata.url}</div>}
+                {s.metadata?.pageTitle && <div>Page — {s.metadata.pageTitle}</div>}
+                {s.metadata && <div>Captured — {s.metadata.capturedAt}</div>}
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
