@@ -22,7 +22,7 @@ function formatTimestamp(iso: string): string {
   const sign = offset >= 0 ? '+' : '-';
   const hours = String(Math.floor(abs / 60)).padStart(2, '0');
   const minutes = String(abs % 60).padStart(2, '0');
-  const tz = `${sign}${hours}:${minutes}`;
+  const tz = `UTC${sign}${hours}:${minutes}`;
   return (
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ` +
     `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} ${tz}`
