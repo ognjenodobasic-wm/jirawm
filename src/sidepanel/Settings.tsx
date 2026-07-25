@@ -608,6 +608,27 @@ export default function Settings({ onBack }: SettingsProps) {
                     Browser and OS
                   </label>
                 </div>
+
+                <div style={{ borderTop: '1px solid var(--chrome-border)', paddingTop: 8, marginTop: 4 }}>
+                  <label className="flex items-start gap-2 text-xs" style={{ color: 'var(--chrome-text-primary)' }}>
+                    <input
+                      type="checkbox"
+                      checked={settings.captureDetails.allowPerScreenshotEdit}
+                      onChange={(e) =>
+                        scheduleSave('captureDetails', {
+                          ...settings,
+                          captureDetails: { ...settings.captureDetails, allowPerScreenshotEdit: e.target.checked },
+                        })
+                      }
+                    />
+                    <span>
+                      Allow editing details per screenshot
+                      <span className="block" style={{ color: 'var(--chrome-text-secondary)', marginTop: 2, fontSize: 11 }}>
+                        Adds a panel to the screenshot preview where you can correct or hide individual details before the task is created.
+                      </span>
+                    </span>
+                  </label>
+                </div>
               </>
             )}
 

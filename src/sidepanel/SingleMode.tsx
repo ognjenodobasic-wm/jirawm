@@ -288,6 +288,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         number,
         filename,
         metadata,
+        metadataOverrides: null,
       };
       setScreenshots((prev) => [...prev, item]);
       setSelectedId(item.id);
@@ -319,6 +320,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
           number,
           filename,
           metadata: null,
+          metadataOverrides: null,
         };
         setScreenshots((prev) => [...prev, item]);
       } catch (err) {
@@ -409,6 +411,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         includeViewport: true,
         includeBrowser: true,
         stripQueryParams: true,
+        allowPerScreenshotEdit: true,
       };
       const descriptionADF = buildDescriptionADF(description.trim(), screenshots, position, detailsSettings);
 
