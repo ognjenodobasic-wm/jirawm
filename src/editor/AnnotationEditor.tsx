@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react';
 import { useEditorTransfer } from './useEditorTransfer';
 import { useWindowBounds } from './useWindowBounds';
 import AnnotateMode from './AnnotateMode';
-import PreviewMode from './PreviewMode';
 import type { PendingEditor } from '../types';
 
 export default function AnnotationEditor() {
   const [pending, setPending] = useState<PendingEditor | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<'preview' | 'annotate'>('preview');
-  const { readPendingEditor, writeAnnotationResult, cleanup } = useEditorTransfer();
+  const { readPendingEditor, cleanup } = useEditorTransfer();
   useWindowBounds();
 
   useEffect(() => {
@@ -56,35 +54,16 @@ export default function AnnotationEditor() {
     );
   }
 
-  async function handleDone(resultDataUrl: string) {
-    if (!pending) return;
-    await writeAnnotationResult({ dataUrl: resultDataUrl, screenshotId: pending.screenshotId });
-    chrome.runtime.sendMessage({ type: 'ANNOTATION_DONE' });
-    const win = await chrome.windows.getCurrent();
-    if (win.id) chrome.windows.remove(win.id);
-  }
-
   async function handleClose() {
     await cleanup();
     const win = await chrome.windows.getCurrent();
     if (win.id) chrome.windows.remove(win.id);
   }
 
-  if (mode === 'preview') {
-    return (
-      <PreviewMode
-        pending={pending}
-        onAnnotate={() => setMode('annotate')}
-        onClose={handleClose}
-      />
-    );
-  }
-
   return (
     <AnnotateMode
-      dataUrl={pending.dataUrl}
-      onDone={handleDone}
-      onCancel={handleClose}
+      pending={pending}
+      onClose={handleClose}
     />
   );
 }

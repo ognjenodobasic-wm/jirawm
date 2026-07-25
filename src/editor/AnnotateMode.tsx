@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
-
-interface AnnotateModeProps {
-  dataUrl: string;
-  onDone: (resultDataUrl: string) => Promise<void>;
-  onCancel: () => Promise<void>;
-}
+import type { PendingEditor, MetadataOverrides } from '../types';
+import { buildCaptureDetailFields } from '../lib/capture-adf';
+import CaptureDetailsPanel from './CaptureDetailsPanel';
+import { setLocal } from '../lib/storage';
 
 const TOOLBAR_HEIGHT = 56;
 const COLORS = ['#ff4444', '#ffcc00', '#00cc88', '#4499ff', '#ffffff'];
+const PANEL_WIDTH = 300;
 type Tool = 'select' | 'crop' | 'arrow' | 'rect' | 'rectFill' | 'marker' | 'text';
+
+interface AnnotateModeProps {
+  pending: PendingEditor;
+  onClose: () => Promise<void>;
+}
 
 interface CropRect {
   x: number;
@@ -18,21 +22,56 @@ interface CropRect {
   height: number;
 }
 
-export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateModeProps) {
+interface SavedResult {
+  imageDirty: boolean;
+  overridesDirty: boolean;
+  resultDataUrl: string | null;
+  overrides: MetadataOverrides | null;
+}
+
+function normalizeOverrides(overrides: MetadataOverrides | null): MetadataOverrides | null {
+  if (!overrides) return null;
+  const keys = Object.keys(overrides) as Array<keyof MetadataOverrides>;
+  if (keys.length === 0) return null;
+  return overrides;
+}
+
+function overridesEqual(a: MetadataOverrides | null, b: MetadataOverrides | null): boolean {
+  const na = normalizeOverrides(a);
+  const nb = normalizeOverrides(b);
+  if (na === null && nb === null) return true;
+  if (na === null || nb === null) return false;
+  const keysA = Object.keys(na).sort();
+  const keysB = Object.keys(nb).sort();
+  if (keysA.length !== keysB.length) return false;
+  for (let i = 0; i < keysA.length; i++) {
+    const key = keysA[i] as keyof MetadataOverrides;
+    if (keysA[i] !== keysB[i]) return false;
+    const va = na[key];
+    const vb = nb[key];
+    if (!va || !vb) return false;
+    if (va.enabled !== vb.enabled || va.value !== vb.value) return false;
+  }
+  return true;
+}
+
+export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
+  const { dataUrl, screenshotId, origin, metadata, metadataOverrides, captureDetailsSettings } = pending;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasInstanceRef = useRef<fabric.Canvas | null>(null);
   const naturalSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const scaleRef = useRef<number>(1);
 
-  const [activeTool, setActiveTool] = useState<Tool>('select');
+  const [activeTool, setActiveTool] = useState<Tool>('arrow');
   const [activeColor, setActiveColor] = useState('#ff4444');
   const [strokeWidth, setStrokeWidth] = useState<2 | 3 | 4>(2);
   const [markerCounter, setMarkerCounter] = useState(1);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const [canvasDirty, setCanvasDirty] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const historyRef = useRef<string[]>([]);
@@ -48,10 +87,45 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
   const cropStartRef = useRef<{ x: number; y: number } | null>(null);
   const cropRectRef = useRef<HTMLDivElement | null>(null);
 
-  const updateDirty = useCallback(() => {
+  // Capture details state
+  const initialOverridesRef = useRef<MetadataOverrides | null>(normalizeOverrides(metadataOverrides));
+  const [workingOverrides, setWorkingOverrides] = useState<MetadataOverrides | null>(initialOverridesRef.current);
+
+  const panelVisible =
+    origin === 'capture' &&
+    metadata !== null &&
+    captureDetailsSettings !== null &&
+    captureDetailsSettings.enabled;
+
+  const resolvedFields =
+    panelVisible && metadata && captureDetailsSettings
+      ? buildCaptureDetailFields(
+          {
+            id: screenshotId,
+            dataUrl: '',
+            origin: 'capture',
+            metadata,
+            metadataOverrides: workingOverrides,
+            number: null,
+            filename: '',
+          },
+          captureDetailsSettings,
+        )
+      : [];
+
+  const allowEdit = captureDetailsSettings?.allowPerScreenshotEdit ?? false;
+  const showPanel = panelVisible && resolvedFields.length > 0;
+
+  const detailsDirty = showPanel && allowEdit
+    ? !overridesEqual(workingOverrides, initialOverridesRef.current)
+    : false;
+
+  const isDirty = canvasDirty || detailsDirty;
+
+  const updateCanvasDirty = useCallback(() => {
     const canvas = canvasInstanceRef.current;
     if (!canvas) return;
-    setIsDirty(canvas.getObjects().length > 0);
+    setCanvasDirty(canvas.getObjects().length > 0);
   }, []);
 
   const saveHistory = useCallback(() => {
@@ -63,8 +137,8 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     historyCursorRef.current++;
     setCanUndo(historyCursorRef.current > 0);
     setCanRedo(false);
-    updateDirty();
-  }, [updateDirty]);
+    updateCanvasDirty();
+  }, [updateCanvasDirty]);
 
   const undo = useCallback(() => {
     const canvas = canvasInstanceRef.current;
@@ -83,10 +157,10 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
         canvas.renderAll();
         setCanUndo(historyCursorRef.current > 0);
         setCanRedo(historyCursorRef.current < historyRef.current.length - 1);
-        updateDirty();
+        updateCanvasDirty();
       });
     }
-  }, [updateDirty]);
+  }, [updateCanvasDirty]);
 
   const redo = useCallback(() => {
     const canvas = canvasInstanceRef.current;
@@ -105,10 +179,10 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
         canvas.renderAll();
         setCanUndo(historyCursorRef.current > 0);
         setCanRedo(historyCursorRef.current < historyRef.current.length - 1);
-        updateDirty();
+        updateCanvasDirty();
       });
     }
-  }, [updateDirty]);
+  }, [updateCanvasDirty]);
 
   const deleteSelected = useCallback(() => {
     const canvas = canvasInstanceRef.current;
@@ -144,7 +218,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     if (!canvas) return;
     const { w: naturalW, h: naturalH } = naturalSizeRef.current;
     if (!naturalW || !naturalH) return;
-    const availW = window.innerWidth;
+    const availW = (showPanel ? window.innerWidth - PANEL_WIDTH : window.innerWidth);
     const availH = window.innerHeight - TOOLBAR_HEIGHT;
     const scale = Math.min(availW / naturalW, availH / naturalH, 1);
     scaleRef.current = scale;
@@ -156,7 +230,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       canvas.backgroundImage.set({ scaleX: scale, scaleY: scale });
     }
     canvas.renderAll();
-  }, []);
+  }, [showPanel]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -168,7 +242,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       const naturalH = img.naturalHeight;
       naturalSizeRef.current = { w: naturalW, h: naturalH };
 
-      const availW = window.innerWidth;
+      const availW = (showPanel ? window.innerWidth - PANEL_WIDTH : window.innerWidth);
       const availH = window.innerHeight - TOOLBAR_HEIGHT;
       const scale = Math.min(availW / naturalW, availH / naturalH, 1);
       scaleRef.current = scale;
@@ -200,11 +274,11 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       historyCursorRef.current = 0;
       setCanUndo(false);
       setCanRedo(false);
-      setIsDirty(false);
+      setCanvasDirty(false);
 
       fabricCanvas.on('object:modified', () => saveHistory());
-      fabricCanvas.on('object:added', () => { resetMarkerCounter(); updateDirty(); });
-      fabricCanvas.on('object:removed', () => { resetMarkerCounter(); updateDirty(); });
+      fabricCanvas.on('object:added', () => { resetMarkerCounter(); updateCanvasDirty(); });
+      fabricCanvas.on('object:removed', () => { resetMarkerCounter(); updateCanvasDirty(); });
     };
     img.src = dataUrl;
 
@@ -215,7 +289,11 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       canvasInstanceRef.current?.dispose();
       canvasInstanceRef.current = null;
     };
-  }, [dataUrl, saveHistory, resetMarkerCounter, updateDirty, handleResize]);
+  }, [dataUrl, saveHistory, resetMarkerCounter, updateCanvasDirty, handleResize, showPanel]);
+
+  useEffect(() => {
+    handleResize();
+  }, [showPanel, handleResize]);
 
   useEffect(() => {
     const canvas = canvasInstanceRef.current;
@@ -416,53 +494,84 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
 
   function handleExitRequest() {
     if (isDirty) setShowConfirm(true);
-    else void onCancel();
+    else void onClose();
+  }
+
+  function buildSavedResult(): SavedResult {
+    const canvas = canvasInstanceRef.current;
+    const imageDirty = canvas ? canvas.getObjects().length > 0 : false;
+    const overridesDirty = showPanel && allowEdit
+      ? !overridesEqual(workingOverrides, initialOverridesRef.current)
+      : false;
+    return { imageDirty, overridesDirty, resultDataUrl: null, overrides: overridesDirty ? normalizeOverrides(workingOverrides) : null };
+  }
+
+  async function exportAnnotatedImage(): Promise<string> {
+    const canvas = canvasInstanceRef.current;
+    if (!canvas) throw new Error('No canvas');
+    const { w: naturalW, h: naturalH } = naturalSizeRef.current;
+    if (!naturalW || !naturalH) throw new Error('No natural size');
+
+    const scale = scaleRef.current;
+    const invScale = 1 / scale;
+
+    const tempCanvasEl = document.createElement('canvas');
+    tempCanvasEl.width = naturalW;
+    tempCanvasEl.height = naturalH;
+
+    const tempFabric = new fabric.Canvas(tempCanvasEl, { width: naturalW, height: naturalH });
+
+    const bgImg = canvas.backgroundImage;
+    if (bgImg instanceof fabric.FabricImage) {
+      const el = bgImg.getElement() as HTMLImageElement;
+      const bgClone = new fabric.FabricImage(el, { scaleX: 1, scaleY: 1, originX: 'left', originY: 'top' });
+      tempFabric.backgroundImage = bgClone;
+    }
+
+    const objects = canvas.getObjects();
+    for (const obj of objects) {
+      const cloned = await obj.clone();
+      cloned.scaleX = (cloned.scaleX ?? 1) * invScale;
+      cloned.scaleY = (cloned.scaleY ?? 1) * invScale;
+      cloned.left = (cloned.left ?? 0) * invScale;
+      cloned.top = (cloned.top ?? 0) * invScale;
+      cloned.setCoords();
+      tempFabric.add(cloned);
+    }
+
+    tempFabric.renderAll();
+    const result = tempFabric.toDataURL({ multiplier: 1, format: 'jpeg', quality: 0.95 });
+    tempFabric.dispose();
+    return result;
   }
 
   const handleDone = () => {
     if (isSaving) return;
-    const canvas = canvasInstanceRef.current;
-    if (!canvas) return;
-    const { w: naturalW, h: naturalH } = naturalSizeRef.current;
-    if (!naturalW || !naturalH) return;
     setIsSaving(true);
 
     void (async () => {
-      const scale = scaleRef.current;
-      const invScale = 1 / scale;
+      try {
+        const result: SavedResult = buildSavedResult();
+        if (result.imageDirty) {
+          result.resultDataUrl = await exportAnnotatedImage();
+        }
 
-      const tempCanvasEl = document.createElement('canvas');
-      tempCanvasEl.width = naturalW;
-      tempCanvasEl.height = naturalH;
+        if (result.resultDataUrl) {
+          await setLocal('annotationResult', { dataUrl: result.resultDataUrl, screenshotId });
+          chrome.runtime.sendMessage({ type: 'ANNOTATION_DONE' });
+        }
+        if (result.overridesDirty) {
+          chrome.runtime.sendMessage({
+            type: 'CAPTURE_DETAILS_UPDATED',
+            screenshotId,
+            overrides: result.overrides,
+          });
+        }
 
-      const tempFabric = new fabric.Canvas(tempCanvasEl, { width: naturalW, height: naturalH });
-
-      const bgImg = canvas.backgroundImage;
-      if (bgImg instanceof fabric.FabricImage) {
-        const el = bgImg.getElement() as HTMLImageElement;
-        const bgClone = new fabric.FabricImage(el, { scaleX: 1, scaleY: 1, originX: 'left', originY: 'top' });
-        tempFabric.backgroundImage = bgClone;
+        await onClose();
+      } finally {
+        setIsSaving(false);
       }
-
-      const objects = canvas.getObjects();
-      for (const obj of objects) {
-        const cloned = await obj.clone();
-        cloned.scaleX = (cloned.scaleX ?? 1) * invScale;
-        cloned.scaleY = (cloned.scaleY ?? 1) * invScale;
-        cloned.left = (cloned.left ?? 0) * invScale;
-        cloned.top = (cloned.top ?? 0) * invScale;
-        cloned.setCoords();
-        tempFabric.add(cloned);
-      }
-
-      tempFabric.renderAll();
-      // Source image already went through JPEG compression at ingest. Re-exporting at the
-      // same quality stacks artifacts, especially on screenshot text. Hardcode 0.95 here
-      // so annotations and crops are always saved at maximum quality regardless of ingest quality.
-      const result = tempFabric.toDataURL({ multiplier: 1, format: 'jpeg', quality: 0.95 });
-      tempFabric.dispose();
-
-      await onDone(result);
     })();
   };
 
@@ -496,13 +605,11 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     const scale = scaleRef.current;
     const invScale = 1 / scale;
 
-    // Convert container-relative selection into canvas-relative image-space coordinates.
     let imgX = Math.round((cropSelection.x - offsetX) * invScale);
     let imgY = Math.round((cropSelection.y - offsetY) * invScale);
     let imgW = Math.round(cropSelection.width * invScale);
     let imgH = Math.round(cropSelection.height * invScale);
 
-    // Clamp to image bounds and minimum size.
     imgX = Math.max(0, Math.min(imgX, naturalW - 1));
     imgY = Math.max(0, Math.min(imgY, naturalH - 1));
     imgW = Math.max(0, Math.min(imgW, naturalW - imgX));
@@ -523,7 +630,6 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
     ctx.drawImage(el, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
     const croppedDataUrl = tempCanvas.toDataURL('image/jpeg', 0.95);
 
-    // Save current objects (none allowed during crop, but keep history shape)
     const snapshotBefore = JSON.stringify(canvas.toJSON());
 
     const img = new Image();
@@ -548,7 +654,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
       historyCursorRef.current += 2;
       setCanUndo(historyCursorRef.current > 0);
       setCanRedo(false);
-      updateDirty();
+      updateCanvasDirty();
 
       setCropMode(false);
       setCropSelection(null);
@@ -630,6 +736,10 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
 
   const cropDisabled = isDirty;
 
+  const mainContentHeight = cropMode
+    ? `calc(100vh - ${TOOLBAR_HEIGHT + 32}px)`
+    : `calc(100vh - ${TOOLBAR_HEIGHT}px)`;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#1a1a2e', overflow: 'hidden' }}>
       <div style={{ height: TOOLBAR_HEIGHT, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', background: 'var(--chrome-surface)', borderBottom: '1px solid var(--chrome-border)', gap: '12px' }}>
@@ -658,12 +768,9 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
           <button onClick={redo} disabled={!canRedo} style={{ padding: '6px 10px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: canRedo ? 'var(--chrome-text-primary)' : 'var(--chrome-border)', cursor: canRedo ? 'pointer' : 'not-allowed', fontSize: '12px' }}>Redo</button>
           <button onClick={deleteSelected} style={{ padding: '6px 10px', border: '1px solid var(--chrome-red)', borderRadius: '4px', background: 'transparent', color: 'var(--chrome-red)', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
           {isDirty ? (
-            <>
-              <button onClick={handleExitRequest} style={{ padding: '6px 14px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: 'var(--chrome-text-primary)', cursor: 'pointer', fontSize: '12px' }}>Cancel</button>
-              <button onClick={handleDone} disabled={isSaving} style={{ padding: '6px 14px', border: 'none', borderRadius: '4px', background: isSaving ? 'var(--chrome-border)' : 'var(--chrome-blue)', color: '#fff', cursor: isSaving ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 500, opacity: isSaving ? 0.7 : 1 }}>
-                {isSaving ? 'Saving…' : 'Save'}
-              </button>
-            </>
+            <button onClick={handleDone} disabled={isSaving} style={{ padding: '6px 14px', border: 'none', borderRadius: '4px', background: isSaving ? 'var(--chrome-border)' : 'var(--chrome-blue)', color: '#fff', cursor: isSaving ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 500, opacity: isSaving ? 0.7 : 1 }}>
+              {isSaving ? 'Saving…' : 'Save'}
+            </button>
           ) : (
             <button onClick={handleExitRequest} style={{ padding: '6px 14px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: 'var(--chrome-text-primary)', cursor: 'pointer', fontSize: '12px' }}>Close</button>
           )}
@@ -706,48 +813,60 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
         </div>
       )}
 
-      <div
-        ref={containerRef}
-        onMouseDown={handleCropMouseDown}
-        onMouseMove={handleCropMouseMove}
-        onMouseUp={handleCropMouseUp}
-        onMouseLeave={handleCropMouseUp}
-        style={{
-          flex: 1,
-          width: '100vw',
-          height: `calc(100vh - ${TOOLBAR_HEIGHT}px)`,
-          overflow: 'hidden',
-          background: '#1a1a2e',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
-      >
-        <canvas ref={canvasRef} />
-        {cropMode && cropSelection && (
-          <div
-            ref={cropRectRef}
-            style={{
-              position: 'absolute',
-              left: cropSelection.x,
-              top: cropSelection.y,
-              width: cropSelection.width,
-              height: cropSelection.height,
-              border: '1px solid #ffffff',
-              background: 'rgba(0,0,0,0.55)',
-              pointerEvents: 'none',
-            }}
-          >
-            <div style={{ position: 'absolute', top: -4, left: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
-            <div style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
-            <div style={{ position: 'absolute', bottom: -4, left: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
-            <div style={{ position: 'absolute', bottom: -4, right: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
-            <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
-            <div style={{ position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
-            <div style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
-            <div style={{ position: 'absolute', right: -4, top: '50%', transform: 'translateY(-50%)', width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
-          </div>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+        <div
+          ref={containerRef}
+          onMouseDown={handleCropMouseDown}
+          onMouseMove={handleCropMouseMove}
+          onMouseUp={handleCropMouseUp}
+          onMouseLeave={handleCropMouseUp}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: mainContentHeight,
+            overflow: 'hidden',
+            background: '#1a1a2e',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+          }}
+        >
+          <canvas ref={canvasRef} />
+          {cropMode && cropSelection && (
+            <div
+              ref={cropRectRef}
+              style={{
+                position: 'absolute',
+                left: cropSelection.x,
+                top: cropSelection.y,
+                width: cropSelection.width,
+                height: cropSelection.height,
+                border: '1px solid #ffffff',
+                background: 'rgba(0,0,0,0.55)',
+                pointerEvents: 'none',
+              }}
+            >
+              <div style={{ position: 'absolute', top: -4, left: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
+              <div style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
+              <div style={{ position: 'absolute', bottom: -4, left: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
+              <div style={{ position: 'absolute', bottom: -4, right: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
+              <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
+              <div style={{ position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
+              <div style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
+              <div style={{ position: 'absolute', right: -4, top: '50%', transform: 'translateY(-50%)', width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
+            </div>
+          )}
+        </div>
+
+        {showPanel && metadata && captureDetailsSettings && (
+          <CaptureDetailsPanel
+            metadata={metadata}
+            settings={captureDetailsSettings}
+            allowEdit={allowEdit}
+            value={workingOverrides}
+            onChange={(next) => setWorkingOverrides(normalizeOverrides(next))}
+          />
         )}
       </div>
 
@@ -774,7 +893,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
             }}
           >
             <p style={{ fontSize: 13, color: 'var(--chrome-text-primary)', margin: '0 0 16px' }}>
-              Discard annotations? This can’t be undone.
+              Discard changes? This can’t be undone.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button
@@ -792,7 +911,7 @@ export default function AnnotateMode({ dataUrl, onDone, onCancel }: AnnotateMode
                 Keep editing
               </button>
               <button
-                onClick={() => { setShowConfirm(false); void onCancel(); }}
+                onClick={() => { setShowConfirm(false); void onClose(); }}
                 style={{
                   padding: '6px 12px',
                   fontSize: 12,

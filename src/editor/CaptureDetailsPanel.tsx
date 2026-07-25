@@ -1,78 +1,33 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CaptureDetailKey, CaptureDetailsSettings, CaptureMetadata, MetadataOverrides } from '../types';
 import type { CaptureDetailField } from '../lib/capture-adf';
 import { buildCaptureDetailFields, hasMetadataOverrides } from '../lib/capture-adf';
 import { getLocal, setLocal } from '../lib/storage';
 
 const COLLAPSED_KEY = 'captureDetailsPanelCollapsed';
-const DEBOUNCE_MS = 400;
 
 interface Props {
-  screenshotId: string;
   metadata: CaptureMetadata;
-  initialOverrides: MetadataOverrides | null;
   settings: CaptureDetailsSettings;
   allowEdit: boolean;
+  value: MetadataOverrides | null;
+  onChange: (overrides: MetadataOverrides | null) => void;
 }
 
 export default function CaptureDetailsPanel({
-  screenshotId,
   metadata,
-  initialOverrides,
   settings,
   allowEdit,
+  value,
+  onChange,
 }: Props) {
-  const [overrides, setOverrides] = useState<MetadataOverrides | null>(initialOverrides);
   const [collapsed, setCollapsed] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestOverridesRef = useRef<MetadataOverrides | null>(initialOverrides);
 
   useEffect(() => {
     getLocal<boolean>(COLLAPSED_KEY).then((val) => {
       if (val !== null) setCollapsed(val);
     });
   }, []);
-
-  const sendUpdate = useCallback(
-    (nextOverrides: MetadataOverrides | null) => {
-      chrome.runtime.sendMessage({
-        type: 'CAPTURE_DETAILS_UPDATED',
-        screenshotId,
-        overrides: nextOverrides,
-      });
-    },
-    [screenshotId],
-  );
-
-  useEffect(() => {
-    function flush() {
-      if (debounceRef.current !== null) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-        sendUpdate(latestOverridesRef.current);
-      }
-    }
-    window.addEventListener('beforeunload', flush);
-    return () => window.removeEventListener('beforeunload', flush);
-  }, [sendUpdate]);
-
-  function scheduleUpdate(next: MetadataOverrides | null) {
-    latestOverridesRef.current = next;
-    if (debounceRef.current !== null) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      sendUpdate(next);
-    }, DEBOUNCE_MS);
-  }
-
-  function immediateUpdate(next: MetadataOverrides | null) {
-    latestOverridesRef.current = next;
-    if (debounceRef.current !== null) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-    sendUpdate(next);
-  }
 
   function toggleCollapsed() {
     const next = !collapsed;
@@ -81,11 +36,11 @@ export default function CaptureDetailsPanel({
   }
 
   const syntheticItem = {
-    id: screenshotId,
+    id: '',
     dataUrl: '',
     origin: 'capture' as const,
     metadata,
-    metadataOverrides: overrides,
+    metadataOverrides: value,
     number: null,
     filename: '',
   };
@@ -95,33 +50,29 @@ export default function CaptureDetailsPanel({
 
   function handleValueChange(key: CaptureDetailKey, currentField: CaptureDetailField, newValue: string) {
     const next: MetadataOverrides = {
-      ...(overrides ?? {}),
+      ...(value ?? {}),
       [key]: { value: newValue, enabled: currentField.enabled },
     };
-    setOverrides(next);
-    scheduleUpdate(next);
+    onChange(next);
   }
 
   function handleToggle(key: CaptureDetailKey, currentField: CaptureDetailField) {
     const next: MetadataOverrides = {
-      ...(overrides ?? {}),
+      ...(value ?? {}),
       [key]: { value: currentField.value, enabled: !currentField.enabled },
     };
-    setOverrides(next);
-    immediateUpdate(next);
+    onChange(next);
   }
 
   function handleRevert(key: CaptureDetailKey) {
-    const next: MetadataOverrides = { ...(overrides ?? {}) };
+    const next: MetadataOverrides = { ...(value ?? {}) };
     delete next[key];
     const cleanNext: MetadataOverrides | null = Object.keys(next).length > 0 ? next : null;
-    setOverrides(cleanNext);
-    immediateUpdate(cleanNext);
+    onChange(cleanNext);
   }
 
   function handleResetAll() {
-    setOverrides(null);
-    immediateUpdate(null);
+    onChange(null);
   }
 
   if (collapsed) {
