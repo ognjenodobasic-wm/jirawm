@@ -1,5 +1,19 @@
 # JiraWM — Changelog
 
+## [3.0.0] — Juli 2026
+### Novo
+- Crop tool u editoru — izreži screenshot pre ili posle anotacije
+- Capture details block u opisu taska — URL, viewport, zoom, browser, OS
+- Screenshot kartica sa horizontalnim skrolom, Capture i Add dugmadima
+- Permission-free viewport derivation — širina ekrana izračunata iz dimenzija slike, bez potrebe za page access do prvog screenshot-a
+- Page access premješten iz required u optional host_permissions, traži se na klik Capture
+- Single screenshot numeracija (1.jpg, 2.jpg...) i bulk upload numeracija prefiksa ("1 - filename.jpg")
+- Editor export uvek kvalitet 0.95, nezavisno od ingest quality postavke
+
+### Removed
+- Thumbnail drag-to-reorder — Jira does not preserve attachment order
+- Separate Preview mode — editor now opens directly from the thumbnail
+
 ## [2.1.0] — Juli 2026
 ### Popravljeno
 - Lista projekata prikazuje samo aktivne projekte, sortirana abecedno

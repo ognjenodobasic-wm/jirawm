@@ -209,17 +209,16 @@ function IntroSection() {
         <ActionList
           items={[
             <>
-              <strong>Single task:</strong> Capture the current tab, add a title, attach to the
-              right Jira task in one click.
+              <strong>Single task:</strong> Capture the current tab or add files, add a title, and
+              attach to the right Jira task in one click.
             </>,
             <>
               <strong>Bulk upload:</strong> Drop multiple screenshots at once — each becomes a
               separate Jira task, processed in the background while you keep working.
             </>,
             <>
-              <strong>Annotations</strong>
-              <Badge>coming soon</Badge>: Mark up screenshots with arrows, rectangles, and labels
-              before attaching them.
+              <strong>Annotations:</strong> Click any screenshot to open it. Crop first if you only
+              need part of the image, then annotate with arrows, rectangles, and labels.
             </>,
           ]}
         />
@@ -334,6 +333,24 @@ function QuickSetupSection() {
           color: 'var(--chrome-text-primary)',
         }}
       >
+        Page access
+      </h3>
+      <Text>
+        The first time you take a screenshot, Chrome asks for permission to read the current page.
+        Uploading files works without it.
+      </Text>
+
+      <Divider />
+
+
+      <h3
+        style={{
+          fontSize: '14px',
+          fontWeight: 600,
+          margin: '0 0 8px 0',
+          color: 'var(--chrome-text-primary)',
+        }}
+      >
         Screenshot quality
       </h3>
       <Text>
@@ -425,8 +442,9 @@ function SingleTaskSection() {
           </>,
           <>
             <span style={{ marginRight: '6px' }}>📷</span>
-            <strong>Capture a screenshot</strong> — Click "Capture" to screenshot the current tab. A
-            thumbnail preview appears in the panel — click it to see the full image.
+            <strong>Capture or add screenshots</strong> — Click Capture to screenshot the current tab,
+            or Add to upload files. Thumbnails appear in a scrollable card — click any to open the
+            editor.
           </>,
           <>
             <span style={{ marginRight: '6px' }}>✏️</span>
@@ -452,12 +470,14 @@ function SingleTaskSection() {
             color: 'var(--chrome-text-primary)',
           }}
         >
-          Multiple screenshots per task
-          <Badge>coming soon</Badge>
+          Capture details
         </h3>
         <Text>
-          A thumbnail strip will let you capture several screenshots and attach all of them to a
-          single task, with drag-to-reorder support.
+          Screenshots taken with the extension add a short block to the description with the page
+          URL, viewport size, zoom level and browser version — useful for bug reports where those
+          conditions matter. It isn't typed into the description box; it's generated when the task
+          is created, so it always matches what's attached. Uploaded files don't get this block.
+          Turn it off in Settings if you don't need it.
         </Text>
       </Card>
     </div>
@@ -622,8 +642,44 @@ function ScreenshotSection() {
           <span style={{ marginRight: '6px' }}>🖼️</span>Preview
         </h3>
         <Text>
-          After capture, a thumbnail appears in the Single Task form. Click the thumbnail to see the
-          full-size image in a lightbox overlay — without leaving the panel or opening a new tab.
+          After capture, a thumbnail appears in the Single Task form. Click the thumbnail to open
+          the screenshot editor.
+        </Text>
+      </Card>
+
+      <Card>
+        <h3
+          style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            margin: '0 0 8px 0',
+            color: 'var(--chrome-text-primary)',
+          }}
+        >
+          Image format
+        </h3>
+        <Text>
+          Every image is converted to JPEG when it enters the extension and scaled to 1920px wide.
+          You don't need to prepare anything — drop in whatever you have. PNG files work fine, they
+          just get converted. Quality and size are adjustable in Settings.
+        </Text>
+      </Card>
+
+      <Card>
+        <h3
+          style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            margin: '0 0 8px 0',
+            color: 'var(--chrome-text-primary)',
+          }}
+        >
+          Cropping
+        </h3>
+        <Text>
+          Click any screenshot to open it. Crop first if you only need part of the image, then
+          annotate. Crop is disabled once you've drawn something — that protects your annotations
+          from being cut away.
         </Text>
       </Card>
 
@@ -639,12 +695,11 @@ function ScreenshotSection() {
           }}
         >
           Annotations
-          <Badge>coming soon</Badge>
         </h3>
         <Text>
-          A dedicated editor will open with your screenshot and let you add arrows, rectangles, text
-          labels, and free drawing — with full undo/redo. The annotated image is what gets attached
-          to Jira — the original is never modified.
+          The screenshot editor lets you add arrows, rectangles, text labels, and numbered markers —
+          with full undo/redo and keyboard shortcuts. The annotated image is what gets attached to
+          Jira. The original is never modified.
         </Text>
       </Card>
     </div>
@@ -775,6 +830,18 @@ function FeedbackSection() {
 }
 
 const CHANGELOG_DATA = [
+  {
+    version: '3.0.0',
+    date: 'Juli 2026',
+    major: true,
+    items: [
+      'Crop tool inside the annotation editor',
+      'Capture details block added to task descriptions from screenshot metadata',
+      'Permission-free viewport derivation — no page access needed until first screenshot',
+      'Screenshots now live in a dedicated card with horizontal scrolling',
+      'Page access is now requested on first screenshot instead of at install time',
+    ],
+  },
   {
     version: '2.1.0',
     date: 'Juli 2026',
