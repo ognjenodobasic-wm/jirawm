@@ -17,11 +17,21 @@ interface HistoryEntry {
   url: string;
 }
 
+export interface SingleTabState {
+  screenshots: ScreenshotItem[];
+  selectedId: string | null;
+  summary: string;
+  assignee: string | null;
+  description: string;
+}
+
 interface SingleModeProps {
   workflows: Workflow[];
   selectedWorkflowId: string;
   isAuthed: boolean;
   onOpenSettings: () => void;
+  state: SingleTabState;
+  onStateChange: React.Dispatch<React.SetStateAction<SingleTabState>>;
 }
 
 const MAX_SCREENSHOTS = 10;
@@ -37,14 +47,45 @@ function buildImageSettings(app: AppSettings | null, workflow: Workflow | null) 
   return { quality, maxWidth, transparencyFill };
 }
 
-export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, onOpenSettings }: SingleModeProps) {
+export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, onOpenSettings, state, onStateChange }: SingleModeProps) {
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
 
-  const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [summary, setSummary] = useState('');
-  const [assignee, setAssignee] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
+  const { screenshots, selectedId, summary, assignee, description } = state;
+
+  const setScreenshots = (next: ScreenshotItem[] | ((prev: ScreenshotItem[]) => ScreenshotItem[])) => {
+    onStateChange((prev) => ({
+      ...prev,
+      screenshots: typeof next === 'function' ? next(prev.screenshots) : next,
+    }));
+  };
+
+  const setSelectedId = (next: string | null | ((prev: string | null) => string | null)) => {
+    onStateChange((prev) => ({
+      ...prev,
+      selectedId: typeof next === 'function' ? next(prev.selectedId) : next,
+    }));
+  };
+
+  const setSummary = (next: string | ((prev: string) => string)) => {
+    onStateChange((prev) => ({
+      ...prev,
+      summary: typeof next === 'function' ? next(prev.summary) : next,
+    }));
+  };
+
+  const setAssignee = (next: string | null | ((prev: string | null) => string | null)) => {
+    onStateChange((prev) => ({
+      ...prev,
+      assignee: typeof next === 'function' ? next(prev.assignee) : next,
+    }));
+  };
+
+  const setDescription = (next: string | ((prev: string) => string)) => {
+    onStateChange((prev) => ({
+      ...prev,
+      description: typeof next === 'function' ? next(prev.description) : next,
+    }));
+  };
 
   const [domain, setDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);

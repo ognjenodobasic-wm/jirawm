@@ -7,7 +7,7 @@ import AssigneeSelect from './components/AssigneeSelect';
 
 type BulkRowStatus = 'waiting' | 'creating' | 'uploading' | 'done' | 'failed';
 
-interface BulkRow {
+export interface BulkRow {
   id: string;
   dataUrl: string;
   filename: string;
@@ -25,12 +25,13 @@ interface BulkModeProps {
   workflows: Workflow[];
   domain: string;
   onOpenSettings: () => void;
+  rows: BulkRow[];
+  setRows: React.Dispatch<React.SetStateAction<BulkRow[]>>;
 }
 
 const BULK_PROGRESS_KEY = 'jirawm_bulk_progress';
 
-export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, domain, onOpenSettings }: BulkModeProps) {
-  const [rows, setRows] = useState<BulkRow[]>([]);
+export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, domain, onOpenSettings, rows, setRows }: BulkModeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);

@@ -7,9 +7,26 @@ import Settings from './Settings';
 import Help from './Help';
 import WorkflowsTab from './WorkflowsTab';
 import WorkflowManager from './WorkflowManager';
-import type { AuthConfig, Workflow, PanelMode } from '../types';
+import type { AuthConfig, Workflow, PanelMode, ScreenshotItem } from '../types';
 import { getLocal } from '../lib/storage';
 import { removeLegacySyncWorkflows } from '../lib/workflows';
+import type { BulkRow } from './BulkMode';
+
+interface SingleTabState {
+  screenshots: ScreenshotItem[];
+  selectedId: string | null;
+  summary: string;
+  assignee: string | null;
+  description: string;
+}
+
+const DEFAULT_SINGLE_STATE: SingleTabState = {
+  screenshots: [],
+  selectedId: null,
+  summary: '',
+  assignee: null,
+  description: '',
+};
 
 const TABS: { id: PanelMode; label: string }[] = [
   { id: 'single', label: 'Single Task' },
@@ -30,6 +47,8 @@ function SidePanel() {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState('');
   const [isAuthed, setIsAuthed] = useState(false);
   const [domain, setDomain] = useState('');
+  const [singleState, setSingleState] = useState<SingleTabState>(DEFAULT_SINGLE_STATE);
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
 
   function loadWorkflows(preferId?: string) {
     getLocal<Workflow[]>('jirawm_workflows').then((wf) => {
@@ -288,7 +307,7 @@ function SidePanel() {
       )}
 
       {/* ── Content area ── */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto relative">
         {showWorkflowManager ? (
           <WorkflowManager
             editWorkflow={editingWorkflow}
@@ -299,31 +318,42 @@ function SidePanel() {
           />
         ) : showSettings ? (
           <Settings onBack={handleBack} />
-        ) : activeTab === 'help' ? (
-          <Help />
-        ) : activeTab === 'workflows' ? (
-          <WorkflowsTab
-            workflows={workflows}
-            isAuthed={isAuthed}
-            onNewWorkflow={() => { setShowWorkflowManager(true); setShowSettings(false); setEditingWorkflow(undefined); }}
-            onEditWorkflow={(wf) => { setEditingWorkflow(wf); setShowWorkflowManager(true); setShowSettings(false); }}
-            onWorkflowsChanged={() => loadWorkflows()}
-          />
-        ) : activeTab === 'single' ? (
-          <SingleMode
-            workflows={workflows}
-            selectedWorkflowId={selectedWorkflowId}
-            isAuthed={isAuthed}
-            onOpenSettings={() => setShowSettings(true)}
-          />
         ) : (
-          <BulkMode
-            isAuthed={isAuthed}
-            selectedWorkflowId={selectedWorkflowId}
-            workflows={workflows}
-            domain={domain}
-            onOpenSettings={() => setShowSettings(true)}
-          />
+          <>
+            <div style={{ display: activeTab === 'single' ? 'block' : 'none' }}>
+              <SingleMode
+                workflows={workflows}
+                selectedWorkflowId={selectedWorkflowId}
+                isAuthed={isAuthed}
+                onOpenSettings={() => setShowSettings(true)}
+                state={singleState}
+                onStateChange={setSingleState}
+              />
+            </div>
+            <div style={{ display: activeTab === 'bulk' ? 'block' : 'none' }}>
+              <BulkMode
+                isAuthed={isAuthed}
+                selectedWorkflowId={selectedWorkflowId}
+                workflows={workflows}
+                domain={domain}
+                onOpenSettings={() => setShowSettings(true)}
+                rows={bulkRows}
+                setRows={setBulkRows}
+              />
+            </div>
+            <div style={{ display: activeTab === 'workflows' ? 'block' : 'none' }}>
+              <WorkflowsTab
+                workflows={workflows}
+                isAuthed={isAuthed}
+                onNewWorkflow={() => { setShowWorkflowManager(true); setShowSettings(false); setEditingWorkflow(undefined); }}
+                onEditWorkflow={(wf) => { setEditingWorkflow(wf); setShowWorkflowManager(true); setShowSettings(false); }}
+                onWorkflowsChanged={() => loadWorkflows()}
+              />
+            </div>
+            <div style={{ display: activeTab === 'help' ? 'block' : 'none' }}>
+              <Help />
+            </div>
+          </>
         )}
       </main>
     </div>
