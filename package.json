@@ -1,13 +1,15 @@
 {
   "name": "jirawm",
   "private": true,
-  "version": "3.0.1",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-key": "node scripts/generate-key.mjs",
+    "package": "npm run build && node scripts/package.mjs"
   },
   "dependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.33",
@@ -23,6 +25,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "archiver": "^8.0.0",
     "oxlint": "^1.71.0",
     "tailwindcss": "^4.0.0",
     "typescript": "~6.0.2",

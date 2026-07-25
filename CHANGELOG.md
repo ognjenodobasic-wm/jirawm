@@ -1,6 +1,18 @@
 # JiraWM — Changelog
 
+## 2.1.0 — Release packaging
+
+### Added
+- Stable extension ID via manifest `key` field.
+- `npm run generate-key` script to create and export the extension RSA key.
+- `npm run package` script that builds and produces `release/jirawm-v{version}.zip`.
+- ZIP layout with a single top-level folder `jirawm-v{version}/` containing the full `dist/` contents plus `INSTALL.md`.
+- GitHub Actions workflow (`.github/workflows/release.yml`) that builds, verifies the tag matches `manifest.json`, and publishes the Release with the ZIP attached.
+- `docs/RELEASE-INSTALL.md` — tester install guide in Serbian.
+- `docs/RELEASE.md` — release checklist in Serbian.
+
 ## 3.0.1 — Fixes
+
 
 ### Fixed
 - Screenshots taken with the extension were compressed twice, softening text.
