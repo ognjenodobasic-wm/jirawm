@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { AuthConfig, AppSettings } from '../types';
 import { getLocal, setLocal, getAppSettings, saveAppSettings } from '../lib/storage';
 import { setAuth, testConnection } from '../lib/jira';
+import { hasCapturePermission, requestCapturePermission } from '../lib/permissions';
 import Accordion from './components/Accordion';
 import Tooltip from './components/Tooltip';
 
@@ -62,6 +63,12 @@ export default function Settings({ onBack }: SettingsProps) {
         setSectionSaved((prev) => ({ ...prev, [section]: false }));
       }, 1500);
     }, 400);
+  }, []);
+
+  const [capturePermission, setCapturePermission] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    hasCapturePermission().then(setCapturePermission).catch(() => setCapturePermission(false));
   }, []);
 
   async function handleSave() {
@@ -248,6 +255,41 @@ export default function Settings({ onBack }: SettingsProps) {
         </div>
 
         {/* Accordions */}
+        <div
+          className="rounded p-2 space-y-2"
+          style={{ border: '1px solid var(--chrome-border)', background: 'var(--chrome-surface)' }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-0.5">
+              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--chrome-text-primary)' }}>
+                Page access
+              </span>
+              <span className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
+                Needed to take screenshots. File uploads work without it.
+              </span>
+            </div>
+            {capturePermission === null ? (
+              <span className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>Checking…</span>
+            ) : capturePermission ? (
+              <span className="text-xs" style={{ color: 'var(--chrome-green)' }}>Granted</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { requestCapturePermission().then(setCapturePermission); }}
+                className="text-xs rounded px-2 py-1"
+                style={{
+                  border: 'none',
+                  background: 'var(--chrome-blue)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                }}
+              >
+                Grant
+              </button>
+            )}
+          </div>
+        </div>
+
         <Accordion
           title="Image handling"
           tooltip="Every image is converted to JPEG when it enters the extension. These settings control that conversion."

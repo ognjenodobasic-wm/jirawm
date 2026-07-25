@@ -6,6 +6,7 @@ import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/ji
 import { normalizeImage, readImageSize, toJpegFilename } from '../lib/image';
 import { collectCaptureMetadata } from '../lib/capture-metadata';
 import { buildDescriptionADF } from '../lib/capture-adf';
+import { hasCapturePermission, requestCapturePermission } from '../lib/permissions';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 import AssigneeSelect from './components/AssigneeSelect';
 import Tooltip from './components/Tooltip';
@@ -180,21 +181,26 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     });
   }
 
-  async function ensureCapturePermission(): Promise<boolean> {
-    if (capturePermission === null) {
-      const granted = await chrome.permissions.contains({ origins: ['<all_urls>'] });
-      setCapturePermission(granted);
-      return granted;
-    }
-    return capturePermission;
-  }
+  useEffect(() => {
+    hasCapturePermission().then(setCapturePermission).catch(() => setCapturePermission(false));
+  }, []);
 
   async function handleCapture() {
     if (isLoading || screenshots.length >= MAX_SCREENSHOTS) return;
     setPermissionMessage(null);
-    const hasPermission = await ensureCapturePermission();
-    if (!hasPermission) {
-      const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
+
+    // If we already know permission is missing, request it synchronously from the click.
+    if (capturePermission === false) {
+      const granted = requestCapturePermission();
+      setCapturePermission(await granted);
+      if (!(await granted)) {
+        setPermissionMessage(
+          'Screenshot capture needs permission to read the current page. Use Add to upload an image instead, or click Capture again to grant it.',
+        );
+        return;
+      }
+    } else if (capturePermission === null) {
+      const granted = await hasCapturePermission();
       setCapturePermission(granted);
       if (!granted) {
         setPermissionMessage(
