@@ -56,7 +56,7 @@ export default function AnnotationEditor() {
 
   async function handleDone(resultDataUrl: string) {
     if (!pending) return;
-    await writeAnnotationResult({ dataUrl: resultDataUrl, thumbnailIndex: pending.thumbnailIndex });
+    await writeAnnotationResult({ dataUrl: resultDataUrl, screenshotId: pending.screenshotId });
     chrome.runtime.sendMessage({ type: 'ANNOTATION_DONE' });
     const win = await chrome.windows.getCurrent();
     if (win.id) chrome.windows.remove(win.id);
@@ -71,7 +71,6 @@ export default function AnnotationEditor() {
   return (
     <AnnotateMode
       dataUrl={pending.dataUrl}
-      thumbnailIndex={pending.thumbnailIndex}
       onDone={handleDone}
       onCancel={handleCancel}
     />

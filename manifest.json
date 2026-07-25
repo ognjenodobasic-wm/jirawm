@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "JiraWM",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Jira task creator — screenshot to subtask",
   "permissions": [
     "activeTab",

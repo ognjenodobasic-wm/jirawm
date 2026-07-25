@@ -137,12 +137,12 @@ export interface WindowBounds {
 
 export interface PendingEditor {
   dataUrl: string;
-  thumbnailIndex: number;
+  screenshotId: string;
 }
 
 export interface AnnotationResult {
   dataUrl: string;
-  thumbnailIndex: number;
+  screenshotId: string;
 }
 
 export type PanelMode = 'single' | 'bulk' | 'workflows' | 'help';

@@ -3,7 +3,6 @@ import * as fabric from 'fabric';
 
 interface AnnotateModeProps {
   dataUrl: string;
-  thumbnailIndex: number;
   onDone: (resultDataUrl: string) => Promise<void>;
   onCancel: () => Promise<void>;
 }

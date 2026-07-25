@@ -1,4 +1,4 @@
-import type { ScreenshotItem, MetadataPosition } from '../types';
+import type { ScreenshotItem, MetadataPosition, CaptureDetailsSettings } from '../types';
 
 type ADFTextNode = { type: 'text'; text: string; marks?: Array<{ type: string }> };
 type ADFParagraphNode = { type: 'paragraph'; content: ADFTextNode[] };
@@ -14,7 +14,7 @@ function paragraph(text: string, strong = false): ADFParagraphNode {
   return { type: 'paragraph', content: [node] };
 }
 
-function formatTimestamp(iso: string): string {
+export function formatTimestamp(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   const offset = -date.getTimezoneOffset();
@@ -29,25 +29,19 @@ function formatTimestamp(iso: string): string {
   );
 }
 
-export function buildCaptureDetailsADF(screenshots: ScreenshotItem[]): ADFNode[] | null {
-  const captures = screenshots.filter((s): s is ScreenshotItem & { metadata: NonNullable<ScreenshotItem['metadata']> } =>
-    s.origin === 'capture' && s.metadata !== null,
-  );
-  if (captures.length === 0) return null;
+export function buildCaptureDetailLines(
+  screenshot: ScreenshotItem,
+  settings: CaptureDetailsSettings,
+): string[] {
+  const md = screenshot.metadata;
+  if (!md) return [];
 
-  const nodes: ADFNode[] = [];
-  nodes.push({ type: 'rule' });
-  nodes.push(paragraph('Captured with JiraWM', true));
+  const items: string[] = [];
+  if (settings.includeUrl && md.url) items.push(`URL — ${md.url}`);
+  if (settings.includePageTitle && md.pageTitle) items.push(`Page — ${md.pageTitle}`);
+  if (settings.includeTimestamp) items.push(`Captured — ${formatTimestamp(md.capturedAt)}`);
 
-  for (const screenshot of captures) {
-    const md = screenshot.metadata;
-    nodes.push(paragraph(screenshot.filename, true));
-
-    const items: string[] = [];
-    if (md.url) items.push(`URL — ${md.url}`);
-    if (md.pageTitle) items.push(`Page — ${md.pageTitle}`);
-    items.push(`Captured — ${formatTimestamp(md.capturedAt)}`);
-
+  if (settings.includeViewport) {
     const viewportParts: string[] = [];
     if (md.viewportWidth !== null && md.viewportHeight !== null) {
       viewportParts.push(`${md.viewportWidth}x${md.viewportHeight}`);
@@ -61,13 +55,38 @@ export function buildCaptureDetailsADF(screenshots: ScreenshotItem[]): ADFNode[]
     if (viewportParts.length > 0) {
       items.push(`Viewport — ${viewportParts.join(' · ')}`);
     }
+  }
 
+  if (settings.includeBrowser) {
     const browserParts: string[] = [];
     if (md.browser) browserParts.push(md.browser);
     if (md.os) browserParts.push(md.os);
     if (browserParts.length > 0) {
       items.push(`Browser — ${browserParts.join(' · ')}`);
     }
+  }
+
+  return items;
+}
+
+export function buildCaptureDetailsADF(
+  screenshots: ScreenshotItem[],
+  settings: CaptureDetailsSettings,
+): ADFNode[] | null {
+  const captures = screenshots.filter((s): s is ScreenshotItem & { metadata: NonNullable<ScreenshotItem['metadata']> } =>
+    s.origin === 'capture' && s.metadata !== null,
+  );
+  if (captures.length === 0) return null;
+
+  const nodes: ADFNode[] = [];
+  nodes.push({ type: 'rule' });
+  nodes.push(paragraph('Captured with JiraWM', true));
+
+  for (const screenshot of captures) {
+    nodes.push(paragraph(screenshot.filename, true));
+
+    const items = buildCaptureDetailLines(screenshot, settings);
+    if (items.length === 0) continue;
 
     const list: ADFBulletListNode = {
       type: 'bulletList',
@@ -90,9 +109,10 @@ export function buildDescriptionADF(
   userText: string,
   screenshots: ScreenshotItem[],
   position: MetadataPosition,
+  settings: CaptureDetailsSettings,
 ): ADFDoc {
   const userNodes = userText.trim() ? toADFParagraphs(userText.trim()) : [];
-  const detailsNodes = buildCaptureDetailsADF(screenshots);
+  const detailsNodes = buildCaptureDetailsADF(screenshots, settings);
 
   let content: ADFNode[] = [];
 

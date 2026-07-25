@@ -1,5 +1,17 @@
 # JiraWM — Changelog
 
+## 3.0.1 — Fixes
+
+### Fixed
+- Screenshots taken with the extension were compressed twice, softening text.
+  Capture is now lossless and compressed only once.
+- The Timestamp option in Settings had no effect on the description block
+- Selecting more than 10 files at once bypassed the per-task limit
+- Annotations could be written to the wrong screenshot if one was deleted while
+  the editor was open
+- The capture details preview did not match what was sent to Jira
+- The permission prompt could be skipped on the very first screenshot
+
 ## [3.0.0] — Juli 2026
 ### Novo
 - Crop tool u editoru — izreži screenshot pre ili posle anotacije

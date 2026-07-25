@@ -5,7 +5,7 @@ import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/jira';
 import { normalizeImage, readImageSize, toJpegFilename } from '../lib/image';
 import { collectCaptureMetadata } from '../lib/capture-metadata';
-import { buildDescriptionADF } from '../lib/capture-adf';
+import { buildDescriptionADF, buildCaptureDetailLines } from '../lib/capture-adf';
 import { hasCapturePermission, requestCapturePermission } from '../lib/permissions';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 import AssigneeSelect from './components/AssigneeSelect';
@@ -80,10 +80,15 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       if (msg.type === 'ANNOTATION_DONE') {
         chrome.storage.local.get('annotationResult', (result) => {
           if (result['annotationResult']) {
-            const { dataUrl, thumbnailIndex } = result['annotationResult'] as AnnotationResult;
-            setScreenshots((prev) =>
-              prev.map((s, i) => (i === thumbnailIndex ? { ...s, dataUrl, annotated: true } : s)),
-            );
+            const { dataUrl, screenshotId } = result['annotationResult'] as AnnotationResult;
+            setScreenshots((prev) => {
+              const exists = prev.some((s) => s.id === screenshotId);
+              if (!exists) {
+                // Screenshot was deleted while editor was open; discard result silently.
+                return prev;
+              }
+              return prev.map((s) => (s.id === screenshotId ? { ...s, dataUrl, annotated: true } : s));
+            });
             chrome.storage.local.remove(['pendingEditor', 'annotationResult']);
           }
           setEditorWindowId(null);
@@ -148,7 +153,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     if (!screenshot) return;
     await setLocal('pendingEditor', {
       dataUrl: screenshot.dataUrl,
-      thumbnailIndex: index,
+      screenshotId: screenshot.id,
     });
     const bounds = await readEditorBounds();
     const createData: chrome.windows.CreateData = {
@@ -189,18 +194,11 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     if (isLoading || screenshots.length >= MAX_SCREENSHOTS) return;
     setPermissionMessage(null);
 
-    // If we already know permission is missing, request it synchronously from the click.
-    if (capturePermission === false) {
-      const granted = requestCapturePermission();
-      setCapturePermission(await granted);
-      if (!(await granted)) {
-        setPermissionMessage(
-          'Screenshot capture needs permission to read the current page. Use Add to upload an image instead, or click Capture again to grant it.',
-        );
-        return;
-      }
-    } else if (capturePermission === null) {
-      const granted = await hasCapturePermission();
+    // Request permission synchronously from the click. Calling request when already granted
+    // resolves true immediately without showing a prompt. This must be the first awaited call
+    // after the click so Chrome accepts it.
+    if (capturePermission !== true) {
+      const granted = await requestCapturePermission();
       setCapturePermission(granted);
       if (!granted) {
         setPermissionMessage(
@@ -217,10 +215,8 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       const tab = await chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => tabs[0] ?? null);
       const tabId = tab?.id ?? -1;
 
-      const rawDataUrl = await chrome.tabs.captureVisibleTab(null, {
-        format: 'jpeg',
-        quality: Math.round(imageSettings.quality * 100),
-      });
+      // Capture lossless PNG so normalizeImage performs the only JPEG compression step.
+      const rawDataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
       const { width: rawWidth, height: rawHeight } = await readImageSize(rawDataUrl);
 
       const metadata =
@@ -253,10 +249,13 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   async function handleFiles(files: FileList | null) {
     if (!files) return;
     const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    const remaining = MAX_SCREENSHOTS - screenshots.length;
+    if (remaining <= 0) return;
+    const accepted = imageFiles.slice(0, remaining);
+    const skipped = imageFiles.length - accepted.length;
     const imageSettings = buildImageSettings(appSettings, activeWorkflow);
 
-    for (const file of imageFiles) {
-      if (screenshots.length >= MAX_SCREENSHOTS) break;
+    for (const file of accepted) {
       try {
         const { dataUrl } = await normalizeImage(file, imageSettings);
         const number = naming.numberSingleScreenshots ? counterRef.current++ : null;
@@ -273,6 +272,9 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
+    }
+    if (skipped > 0) {
+      setError(`Only ${MAX_SCREENSHOTS} screenshots per task — ${skipped} file${skipped === 1 ? '' : 's'} were skipped.`);
     }
     setResultKey(null);
     setAttachFailed(false);
@@ -346,7 +348,17 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       setDomain(auth.domain);
 
       const position = appSettings?.captureDetails.position ?? 'bottom';
-      const descriptionADF = buildDescriptionADF(description.trim(), screenshots, position);
+      const detailsSettings = appSettings?.captureDetails ?? {
+        enabled: true,
+        position: 'bottom',
+        includeUrl: true,
+        includePageTitle: true,
+        includeTimestamp: true,
+        includeViewport: true,
+        includeBrowser: true,
+        stripQueryParams: true,
+      };
+      const descriptionADF = buildDescriptionADF(description.trim(), screenshots, position, detailsSettings);
 
       const fields: Record<string, unknown> = {
         ...buildWorkflowFields(activeWorkflow),
@@ -838,8 +850,14 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
 
 function CaptureDetailsPreview({ screenshots }: { screenshots: ScreenshotItem[] }) {
   const [open, setOpen] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const captureCount = screenshots.filter((s) => s.metadata !== null).length;
-  if (captureCount === 0) return null;
+
+  useEffect(() => {
+    getAppSettings().then(setAppSettings);
+  }, []);
+
+  if (captureCount === 0 || !appSettings) return null;
 
   return (
     <div>
@@ -867,15 +885,16 @@ function CaptureDetailsPreview({ screenshots }: { screenshots: ScreenshotItem[] 
       {open && (
         <div style={{ marginTop: 4, fontSize: 11, color: 'var(--chrome-text-secondary)', lineHeight: 1.4 }}>
           {screenshots
-            .filter((s) => s.metadata !== null)
-            .map((s) => (
-              <div key={s.id}>
-                {s.filename}
-                {s.metadata?.url && <div>URL — {s.metadata.url}</div>}
-                {s.metadata?.pageTitle && <div>Page — {s.metadata.pageTitle}</div>}
-                {s.metadata && <div>Captured — {s.metadata.capturedAt}</div>}
-              </div>
-            ))}
+            .filter((s): s is ScreenshotItem & { metadata: NonNullable<ScreenshotItem['metadata']> } => s.metadata !== null)
+            .map((s) => {
+              const lines = buildCaptureDetailLines(s, appSettings.captureDetails);
+              return (
+                <div key={s.id}>
+                  <div style={{ fontWeight: 500, color: 'var(--chrome-text-primary)' }}>{s.filename}</div>
+                  {lines.map((line) => <div key={line}>{line}</div>)}
+                </div>
+              );
+            })}
         </div>
       )}
     </div>

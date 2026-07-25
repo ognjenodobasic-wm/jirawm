@@ -831,6 +831,18 @@ function FeedbackSection() {
 
 const CHANGELOG_DATA = [
   {
+    version: '3.0.1',
+    date: 'Juli 2026',
+    items: [
+      'Screenshots captured losslessly; only one JPEG compression pass via ingest pipeline',
+      'Timestamp option in Settings now controls the description block',
+      'Multi-file Add enforces the 10 screenshot limit and reports skipped files',
+      'Annotations target screenshots by stable id instead of array index',
+      'Capture details preview matches the block sent to Jira',
+      'Permission prompt now always fires on first Capture click',
+    ],
+  },
+  {
     version: '3.0.0',
     date: 'Juli 2026',
     major: true,
