@@ -17,5 +17,8 @@ export default defineConfig({
         editor: 'editor.html',
       },
     },
+    // Note: @crxjs/vite-plugin internally uses rolldownOptions for content-script handling,
+    // which generates a harmless Vite warning about both rollupOptions and rolldownOptions
+    // being set. This is a CRX plugin implementation detail and does not affect the build.
   },
 });

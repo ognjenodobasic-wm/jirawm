@@ -112,7 +112,7 @@ Jira odbija (400) ako se strukturisano polje pošalje kao goli string. `serializ
 
 **Gde se poziva:** unutar `createIssue()`, u petlji kroz `params.fields` (preskače `description`, koji ide kroz `buildDescriptionADF`). Poziva se i iz Single moda i iz bulk workera, jer oba prolaze kroz `createIssue` i prosleđuju `workflow.fieldMeta`.
 
-`fieldMeta` se snima u sam workflow u trenutku kreiranja (iz `getIssueTypes`), tako da serializacija radi i offline / iz keša.
+`fieldMeta` je **runtime-only** — nije persisted u storage. `saveWorkflow` u `src/lib/workflows.ts` ga eksplicitno briše pre nego što se workflow pohrani. On se rekonstruiše svaki put kada se workflow koristi, prikupljanjem createmeta iz Jira API-ja (ili iz kešinga). Ovo omogućava da se serializacija radi sa uvek-svežim informacijama o poljima.
 
 ---
 
