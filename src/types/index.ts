@@ -1,3 +1,46 @@
+export type TransparencyFill = 'white' | 'black';
+export type MetadataPosition = 'top' | 'bottom';
+
+export interface ImageSettings {
+  quality: number; // 0.6 - 1.0, default 0.85
+  maxWidth: number; // default 1920
+  transparencyFill: TransparencyFill; // default 'white'
+}
+
+export interface NamingSettings {
+  numberSingleScreenshots: boolean; // default true  -> 1.jpg, 2.jpg
+  numberBulkFiles: boolean; // default true  -> "1 - screenshot.jpg"
+}
+
+export interface CaptureDetailsSettings {
+  enabled: boolean; // master toggle, default true
+  position: MetadataPosition; // default 'bottom'
+  includeUrl: boolean; // default true
+  includePageTitle: boolean; // default true
+  includeTimestamp: boolean; // default true
+  includeViewport: boolean; // default true
+  includeBrowser: boolean; // default true
+  stripQueryParams: boolean; // default true
+}
+
+export interface AppSettings {
+  image: ImageSettings;
+  naming: NamingSettings;
+  captureDetails: CaptureDetailsSettings;
+}
+
+export interface CaptureMetadata {
+  url: string | null;
+  pageTitle: string | null;
+  capturedAt: string; // ISO 8601 with local offset
+  viewportWidth: number | null;
+  viewportHeight: number | null;
+  devicePixelRatio: number | null;
+  zoomFactor: number | null; // 1 = 100%
+  browser: string | null; // e.g. "Chrome 138"
+  os: string | null; // e.g. "macOS 15.2"
+}
+
 export interface AuthConfig {
   domain: string;
   email: string;
@@ -79,9 +122,11 @@ export interface ScreenshotItem {
   dataUrl: string;
   label?: string;
   annotated?: boolean;
+  origin: 'capture' | 'upload';
+  number: number | null; // sequence number, null when numbering is off
+  filename: string; // final attachment filename, e.g. "1.jpg"
+  metadata: CaptureMetadata | null; // only when origin === 'capture'
 }
-
-export type EditorMode = 'preview' | 'annotate';
 
 export interface WindowBounds {
   width: number;
@@ -93,7 +138,6 @@ export interface WindowBounds {
 export interface PendingEditor {
   dataUrl: string;
   thumbnailIndex: number;
-  mode: EditorMode;
 }
 
 export interface AnnotationResult {
