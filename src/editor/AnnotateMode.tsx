@@ -459,6 +459,11 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName.toLowerCase();
+      const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select'
+        || (e.target as HTMLElement).isContentEditable;
+      if (isEditable) return;
+
       if (cropMode) {
         if (e.key === 'Escape') { cancelCrop(); return; }
         return;
