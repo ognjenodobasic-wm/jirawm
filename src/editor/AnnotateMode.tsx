@@ -123,7 +123,10 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     ? !overridesEqual(workingOverrides, initialOverridesRef.current)
     : false;
 
-  const isDirty = canvasDirty || detailsDirty;
+  // canvasDirty  -> annotation objects exist; gates drawing-state affordances (crop, delete)
+  // detailsDirty -> Capture Details panel has pending edits
+  // hasUnsavedWork -> either kind of unsaved work; gates Save/Cancel and all exit confirms
+  const hasUnsavedWork = canvasDirty || detailsDirty;
 
   const updateCanvasDirty = useCallback(() => {
     const canvas = canvasInstanceRef.current;
@@ -484,21 +487,21 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTool, undo, redo, deleteSelected, cropMode, isDirty]);
+  }, [activeTool, undo, redo, deleteSelected, cropMode, hasUnsavedWork]);
 
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
-      if (isDirty) {
+      if (hasUnsavedWork) {
         e.preventDefault();
         e.returnValue = '';
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty]);
+  }, [hasUnsavedWork]);
 
   function handleExitRequest() {
-    if (isDirty) setShowConfirm(true);
+    if (hasUnsavedWork) setShowConfirm(true);
     else void onClose();
   }
 
@@ -980,7 +983,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
           <button onClick={undo} disabled={!canUndo} style={{ padding: '6px 10px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: canUndo ? 'var(--chrome-text-primary)' : 'var(--chrome-border)', cursor: canUndo ? 'pointer' : 'not-allowed', fontSize: '12px' }}>Undo</button>
           <button onClick={redo} disabled={!canRedo} style={{ padding: '6px 10px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: canRedo ? 'var(--chrome-text-primary)' : 'var(--chrome-border)', cursor: canRedo ? 'pointer' : 'not-allowed', fontSize: '12px' }}>Redo</button>
           <button onClick={deleteSelected} style={{ padding: '6px 10px', border: '1px solid var(--chrome-red)', borderRadius: '4px', background: 'transparent', color: 'var(--chrome-red)', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
-          {isDirty ? (
+          {hasUnsavedWork ? (
             <button onClick={handleDone} disabled={isSaving} style={{ padding: '6px 14px', border: 'none', borderRadius: '4px', background: isSaving ? 'var(--chrome-border)' : 'var(--chrome-blue)', color: '#fff', cursor: isSaving ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 500, opacity: isSaving ? 0.7 : 1 }}>
               {isSaving ? 'Saving…' : 'Save'}
             </button>
