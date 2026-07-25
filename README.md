@@ -166,6 +166,18 @@ npm run build      # production build
 
 ---
 
+## For contributors using AI tools
+
+`CLAUDE.md` and `.clinerules` contain project instructions for AI coding assistants
+(Claude Code and Cline). If you use either tool, they will pick these up automatically
+— build loop, commit format, TypeScript rules, storage conventions and known pitfalls
+are all documented there.
+
+`AGENTS.md` covers multi-agent coordination rules for sessions that involve more than
+one AI tool at the same time.
+
+---
+
 ## Distribution
 
 JiraWM is distributed internally as a load-unpacked build — not through the Chrome Web Store. Releases are published on [GitHub](https://github.com/ognjenodobasic-wm/jirawm/releases). When a new version is available, the extension shows an update indicator in the side panel so you know to grab it.
