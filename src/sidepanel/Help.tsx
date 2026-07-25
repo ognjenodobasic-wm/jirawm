@@ -1,6 +1,15 @@
 import { useState } from 'react';
 
-type HelpSection = 'intro' | 'quicksetup' | 'single' | 'bulk' | 'screenshot' | 'feedback' | 'changelog';
+type HelpSection =
+  | 'intro'
+  | 'quicksetup'
+  | 'single'
+  | 'bulk'
+  | 'screenshot'
+  | 'editor'
+  | 'workflows'
+  | 'feedback'
+  | 'changelog';
 
 const SECTIONS: { id: HelpSection; label: string }[] = [
   { id: 'intro', label: 'Intro' },
@@ -8,6 +17,8 @@ const SECTIONS: { id: HelpSection; label: string }[] = [
   { id: 'single', label: 'Single task' },
   { id: 'bulk', label: 'Bulk upload' },
   { id: 'screenshot', label: 'Screenshot' },
+  { id: 'editor', label: 'Editor' },
+  { id: 'workflows', label: 'Workflows' },
   { id: 'feedback', label: 'Feedback' },
   { id: 'changelog', label: 'Changelog' },
 ];
@@ -18,26 +29,6 @@ const SCROLLBAR_CSS = `
   .help-content::-webkit-scrollbar-thumb { background: var(--chrome-border); border-radius: 3px; }
   .help-content::-webkit-scrollbar-track { background: transparent; }
 `;
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      style={{
-        background: '#fce8b2',
-        color: '#b06000',
-        fontSize: '10px',
-        padding: '2px 6px',
-        borderRadius: '10px',
-        fontWeight: 500,
-        textTransform: 'uppercase',
-        letterSpacing: '0.3px',
-        marginLeft: '6px',
-      }}
-    >
-      {children}
-    </span>
-  );
-}
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -169,6 +160,13 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
   );
 }
 
+const cardHeadingStyle: React.CSSProperties = {
+  fontSize: '14px',
+  fontWeight: 600,
+  margin: '0 0 8px 0',
+  color: 'var(--chrome-text-primary)',
+};
+
 function IntroSection() {
   return (
     <div>
@@ -177,108 +175,35 @@ function IntroSection() {
         A browser extension that cuts the friction out of logging UI bugs and tasks to Jira.
       </Subtitle>
 
-      <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          Why it exists
-        </h3>
-        <Text>
-          Logging a task the normal way means: screenshot tool, upload, switch to Jira, pick
-          project, pick epic, fill the same fields again. For a team logging 10–30 tasks a day,
-          that's real time lost. JiraWM collapses this to: capture, type a title, submit.
-        </Text>
-      </Card>
-
-      <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          What you can do
-        </h3>
-        <ActionList
-          items={[
-            <>
-              <strong>Single task:</strong> Capture the current tab or add files, add a title, and
-              attach to the right Jira task in one click.
-            </>,
-            <>
-              <strong>Bulk upload:</strong> Drop multiple screenshots at once — each becomes a
-              separate Jira task, processed in the background while you keep working.
-            </>,
-            <>
-              <strong>Annotations:</strong> Click any screenshot to open it. Crop first if you only
-              need part of the image, then annotate with arrows, rectangles, and labels.
-            </>,
-          ]}
-        />
-      </Card>
-
-      <Divider />
-
-      <h3
-        style={{
-          fontSize: '14px',
-          fontWeight: 600,
-          margin: '0 0 8px 0',
-          color: 'var(--chrome-text-primary)',
-        }}
-      >
-        What's a workflow?
-      </h3>
       <Text>
-        A workflow is a saved preset: which Jira project, which issue type, which parent task, and
-        all the required field defaults. You set it up once — then every task you create with it
-        fills those fields automatically.
+        The tab bar shows <strong>Single Task</strong>, <strong>Bulk Upload</strong> and{' '}
+        <strong>Workflows</strong> on the left, with <strong>Help</strong> and the{' '}
+        <strong>⚙️</strong> settings button on the right. Below the tabs, a sticky row shows the
+        selected workflow with “+ New” and “Edit” links — it only appears on the Single Task and Bulk
+        Upload tabs.
       </Text>
 
       <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          Workflow options
-        </h3>
+        <h3 style={cardHeadingStyle}>The four tabs</h3>
         <ActionList
           items={[
             <>
-              <strong>Project + issue type:</strong> Picked from your actual Jira projects — no
-              manual key typing.
+              <strong>Single Task:</strong> Capture the current tab or upload files, add a summary,
+              and create one Jira task.
             </>,
             <>
-              <strong>Parent task:</strong> Optionally pin all tasks to a parent. All tasks created
-              with this workflow become subtasks of it.
+              <strong>Bulk Upload:</strong> Drop a folder of screenshots and turn each one into a
+              separate Jira task in the background.
             </>,
             <>
-              <strong>Required fields:</strong> Set defaults once — Sprint, Priority, Component, or
-              any field your project requires.
+              <strong>Workflows:</strong> Create, edit, import and export saved task templates.
             </>,
             <>
-              <strong>Optional fields:</strong> Include only the fields you actually use. Leave the
-              rest out.
+              <strong>Help:</strong> Browse this guide and the changelog.
             </>,
           ]}
         />
       </Card>
-
-      <SmallText>
-        💡 <strong>Tip:</strong> think of one workflow per context — "QA bugs", "UX feedback",
-        "PM tasks". Don't try to make one workflow do everything.
-      </SmallText>
     </div>
   );
 }
@@ -311,7 +236,7 @@ function QuickSetupSection() {
       <Step
         number={2}
         title="Connect to Jira"
-        text="Open Settings (⚙ top right). Enter your Jira subdomain, email address, and the API token. Hit “Test connection” — you should see your display name confirmed."
+        text="Open Settings (⚙️ top right). Enter your Jira subdomain, email address, and the API token. Hit “Test connection” — you should see your display name confirmed."
       >
         <CodeBlock>yourcompany.atlassian.net</CodeBlock>
         <SmallText>Enter only the subdomain, not the full URL.</SmallText>
@@ -325,16 +250,7 @@ function QuickSetupSection() {
 
       <Divider />
 
-      <h3
-        style={{
-          fontSize: '14px',
-          fontWeight: 600,
-          margin: '0 0 8px 0',
-          color: 'var(--chrome-text-primary)',
-        }}
-      >
-        Page access
-      </h3>
+      <h3 style={cardHeadingStyle}>Page access</h3>
       <Text>
         The first time you take a screenshot, Chrome asks for permission to read the current page.
         Uploading files works without it.
@@ -342,36 +258,43 @@ function QuickSetupSection() {
 
       <Divider />
 
-
-      <h3
-        style={{
-          fontSize: '14px',
-          fontWeight: 600,
-          margin: '0 0 8px 0',
-          color: 'var(--chrome-text-primary)',
-        }}
-      >
-        Screenshot quality
-      </h3>
+      <h3 style={cardHeadingStyle}>Settings overview</h3>
       <Text>
-        By default, screenshots are compressed to JPEG at 85% quality with a max width of 1920px.
-        This keeps file sizes small while staying visually sharp for UI work.
+        Settings (⚙️ top right) is split into three collapsible sections. Changes save automatically
+        — there is no Save button except for the Jira connection at the top.
       </Text>
 
       <Card>
-        <ActionList
-          items={[
-            <>
-              <strong>Global defaults:</strong> Set your preferred quality and max width in
-              Settings. Applies to all workflows unless overridden.
-            </>,
-            <>
-              <strong>Per-workflow override</strong>
-              <Badge>coming soon</Badge>: Override compression settings for a specific workflow —
-              useful if one project needs higher fidelity.
-            </>,
-          ]}
-        />
+        <h3 style={cardHeadingStyle}>Image handling</h3>
+        <Text>
+          Controls how images are converted on entry. Every image is normalised to JPEG immediately —
+          the quality slider and max width apply at that point only. Annotations and crops are always
+          saved at maximum quality regardless of the quality setting, so editing never degrades an
+          image twice. The transparency fill option sets the background colour for PNGs with
+          transparent areas: white suits most UI screenshots, black suits dark-mode UIs.
+        </Text>
+      </Card>
+
+      <Card>
+        <h3 style={cardHeadingStyle}>Screenshot naming</h3>
+        <Text>
+          Attaches a number to each screenshot so you can reference them from the description. Single
+          task names them 1.jpg, 2.jpg in the order they appear in the strip. Bulk upload prefixes the
+          filename (e.g. 1 - login-error.jpg). Numbers are never reused — deleting screenshot 2 does
+          not renumber screenshot 3.
+        </Text>
+      </Card>
+
+      <Card>
+        <h3 style={cardHeadingStyle}>Capture details</h3>
+        <Text>
+          Automatically appends a metadata block to the task description when a screenshot is taken
+          with the extension. The block includes page URL, page title, timestamp, viewport size, zoom
+          level, and browser/OS. It is generated at the moment the task is created, so it always
+          matches what is attached. Uploaded files never get this block. The block can be placed at
+          the start or end of the description; individual fields can be turned off; and the whole
+          feature can be disabled. Configurable per field in Settings.
+        </Text>
       </Card>
     </div>
   );
@@ -409,16 +332,7 @@ function Step({
         {number}
       </div>
       <div style={{ flex: 1 }}>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 4px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          {title}
-        </h3>
+        <h3 style={cardHeadingStyle}>{title}</h3>
         <Text>{text}</Text>
         {children}
       </div>
@@ -442,9 +356,10 @@ function SingleTaskSection() {
           </>,
           <>
             <span style={{ marginRight: '6px' }}>📷</span>
-            <strong>Capture or add screenshots</strong> — Click Capture to screenshot the current tab,
-            or Add to upload files. Thumbnails appear in a scrollable card — click any to open the
-            editor.
+            <strong>Capture or add screenshots</strong> — Click <strong>Capture</strong> to take a
+            screenshot of the current browser tab, or <strong>Add</strong> to open a file picker and
+            upload existing images. Both add thumbnails to the scrollable strip. Each thumbnail has a
+            centered <strong>Edit</strong> button that opens the editor popup.
           </>,
           <>
             <span style={{ marginRight: '6px' }}>✏️</span>
@@ -462,16 +377,7 @@ function SingleTaskSection() {
       <Divider />
 
       <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          Capture details
-        </h3>
+        <h3 style={cardHeadingStyle}>Capture details</h3>
         <Text>
           Screenshots taken with the extension add a short block to the description with the page
           URL, viewport size, zoom level and browser version — useful for bug reports where those
@@ -512,16 +418,7 @@ function BulkUploadSection() {
 
       <Divider />
 
-      <h3
-        style={{
-          fontSize: '14px',
-          fontWeight: 600,
-          margin: '0 0 8px 0',
-          color: 'var(--chrome-text-primary)',
-        }}
-      >
-        Task status
-      </h3>
+      <h3 style={cardHeadingStyle}>Task status</h3>
 
       <div style={{ margin: '0 0 18px 0' }}>
         {[
@@ -552,16 +449,7 @@ function BulkUploadSection() {
       <Divider />
 
       <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          Retry failed tasks
-        </h3>
+        <h3 style={cardHeadingStyle}>Retry failed tasks</h3>
         <Text>
           If some tasks fail, use "Retry failed" to reprocess only those rows — not the ones that
           already succeeded. Progress is saved even if you close the panel.
@@ -569,16 +457,7 @@ function BulkUploadSection() {
       </Card>
 
       <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          Completion notification
-        </h3>
+        <h3 style={cardHeadingStyle}>Completion notification</h3>
         <Text>
           When all tasks finish, a desktop notification tells you how many succeeded. Clicking it
           reopens the panel with the full results and all task links.
@@ -595,14 +474,7 @@ function ScreenshotSection() {
       <Subtitle>How capture and compression work in JiraWM.</Subtitle>
 
       <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
+        <h3 style={cardHeadingStyle}>
           <span style={{ marginRight: '6px' }}>📷</span>Capturing
         </h3>
         <Text>
@@ -613,32 +485,26 @@ function ScreenshotSection() {
       </Card>
 
       <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          <span style={{ marginRight: '6px' }}>🗜️</span>Compression
-        </h3>
+        <h3 style={cardHeadingStyle}>Image format</h3>
         <Text>
-          Screenshots are automatically converted to JPEG and resized if needed. Quality: 85% —
-          roughly 10× smaller than PNG. Max width: 1920px — wider screenshots scale down
-          proportionally.
+          Every image entering the extension is converted to JPEG. You do not need to prepare files
+          in advance — drop in PNGs, screenshots from any tool, or exported designs. Quality and max
+          width are controlled in Settings → Image handling.
         </Text>
       </Card>
 
       <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
+        <h3 style={cardHeadingStyle}>Crop</h3>
+        <Text>
+          Click any thumbnail to open it. In the editor, activate Crop before you start drawing. Drag
+          a selection, resize with the handles, then click Apply. Crop is disabled once annotations
+          exist — this protects your work from being cut away. Undo after a crop restores the full
+          image.
+        </Text>
+      </Card>
+
+      <Card>
+        <h3 style={cardHeadingStyle}>
           <span style={{ marginRight: '6px' }}>🖼️</span>Preview
         </h3>
         <Text>
@@ -647,61 +513,223 @@ function ScreenshotSection() {
         </Text>
       </Card>
 
-      <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          Image format
-        </h3>
-        <Text>
-          Every image is converted to JPEG when it enters the extension and scaled to 1920px wide.
-          You don't need to prepare anything — drop in whatever you have. PNG files work fine, they
-          just get converted. Quality and size are adjustable in Settings.
-        </Text>
-      </Card>
-
-      <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          Cropping
-        </h3>
-        <Text>
-          Click any screenshot to open it. Crop first if you only need part of the image, then
-          annotate. Crop is disabled once you've drawn something — that protects your annotations
-          from being cut away.
-        </Text>
-      </Card>
-
       <Divider />
 
       <Card>
-        <h3
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            margin: '0 0 8px 0',
-            color: 'var(--chrome-text-primary)',
-          }}
-        >
-          Annotations
-        </h3>
+        <h3 style={cardHeadingStyle}>Annotations</h3>
         <Text>
           The screenshot editor lets you add arrows, rectangles, text labels, and numbered markers —
           with full undo/redo and keyboard shortcuts. The annotated image is what gets attached to
           Jira. The original is never modified.
         </Text>
       </Card>
+    </div>
+  );
+}
+
+function ToolRow({
+  name,
+  description,
+  shortcut,
+}: {
+  name: string;
+  description: string;
+  shortcut: string;
+}) {
+  return (
+    <div style={{ display: 'flex', gap: '12px' }}>
+      <div
+        style={{
+          width: '90px',
+          flexShrink: 0,
+          fontWeight: 600,
+          color: 'var(--chrome-text-primary)',
+        }}
+      >
+        {name}
+      </div>
+      <div style={{ flex: 1, color: 'var(--chrome-text-primary)' }}>
+        {description}
+        <br />
+        <SmallText>Keyboard shortcut: {shortcut}</SmallText>
+      </div>
+    </div>
+  );
+}
+
+function EditorSection() {
+  return (
+    <div>
+      <SectionTitle>Editor</SectionTitle>
+      <Subtitle>Annotate and crop screenshots before they are attached to a task.</Subtitle>
+
+      <Text>
+        Click any thumbnail to open it in the editor. The editor opens as a floating window that
+        remembers its size and position. You can annotate first and decide whether to save, or close
+        without changes — the original thumbnail is untouched until you click Done.
+      </Text>
+
+      <Divider />
+
+      <Card>
+        <h3 style={cardHeadingStyle}>Tools</h3>
+        <ActionList
+          items={[
+            <ToolRow
+              name="Crop"
+              description="Select a region and click Apply. Disabled once annotations exist."
+              shortcut="C"
+            />,
+            <ToolRow
+              name="Select"
+              description="Click to select an existing annotation and move or delete it."
+              shortcut="V"
+            />,
+            <ToolRow name="Arrow" description="Draw an arrow pointing at something." shortcut="A" />,
+            <ToolRow
+              name="Rectangle"
+              description="Draw an outline rectangle to highlight a region."
+              shortcut="R"
+            />,
+            <ToolRow
+              name="Fill"
+              description="Draw a solid filled rectangle (useful for blocking out sensitive info)."
+              shortcut="F"
+            />,
+            <ToolRow
+              name="Marker"
+              description="Place a numbered circle. Counters auto-increment: ①, ②, ③…"
+              shortcut="M"
+            />,
+            <ToolRow
+              name="Text"
+              description="Click to place editable text. Double-click to edit after placing."
+              shortcut="T"
+            />,
+          ]}
+        />
+      </Card>
+
+      <Divider />
+
+      <h3 style={cardHeadingStyle}>Colors and stroke</h3>
+      <Text>
+        Five color presets are available in the toolbar. Stroke width can be set to 2, 3, or 4px
+        from the dropdown next to the colors.
+      </Text>
+
+      <Divider />
+
+      <h3 style={cardHeadingStyle}>Undo, redo and delete</h3>
+      <Text>
+        Ctrl+Z undoes the last action, Ctrl+Y (or Ctrl+Shift+Z) redoes it. Undo works across crops
+        and annotations in a single history stack. Select an object and press Delete or Backspace to
+        remove it.
+      </Text>
+
+      <Divider />
+
+      <Card>
+        <h3 style={cardHeadingStyle}>Keyboard shortcuts</h3>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '100px 1fr',
+            gap: '6px 12px',
+            fontSize: '13px',
+            color: 'var(--chrome-text-primary)',
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>C</span>
+          <span>Crop (when no annotations exist)</span>
+          <span style={{ fontWeight: 600 }}>V</span>
+          <span>Select</span>
+          <span style={{ fontWeight: 600 }}>A</span>
+          <span>Arrow</span>
+          <span style={{ fontWeight: 600 }}>R</span>
+          <span>Rectangle</span>
+          <span style={{ fontWeight: 600 }}>F</span>
+          <span>Fill</span>
+          <span style={{ fontWeight: 600 }}>M</span>
+          <span>Marker</span>
+          <span style={{ fontWeight: 600 }}>T</span>
+          <span>Text</span>
+          <span style={{ fontWeight: 600 }}>Ctrl+Z</span>
+          <span>Undo</span>
+          <span style={{ fontWeight: 600 }}>Ctrl+Y</span>
+          <span>Redo</span>
+          <span style={{ fontWeight: 600 }}>Delete</span>
+          <span>Remove selected annotation</span>
+          <span style={{ fontWeight: 600 }}>Escape</span>
+          <span>Cancel crop / prompt to discard and close</span>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function WorkflowsSection() {
+  return (
+    <div>
+      <SectionTitle>Workflows</SectionTitle>
+      <Subtitle>Save task templates so you fill in only the summary each time.</Subtitle>
+
+      <Text>
+        A workflow captures everything that does not change between tasks: which Jira project to file
+        in, the issue type, an optional parent task, required field defaults (sprint, priority,
+        component, etc.), and a default assignee. When you create a task you pick a workflow and fill
+        in the summary — everything else is pre-filled.
+      </Text>
+
+      <Divider />
+
+      <h3 style={cardHeadingStyle}>Creating a workflow</h3>
+
+      <Step
+        number={1}
+        title="Select project"
+        text="Pick the Jira project. Only active projects are shown, sorted alphabetically."
+      />
+
+      <Step
+        number={2}
+        title="Choose issue type"
+        text="Select the issue type for tasks created from this workflow."
+      />
+
+      <Step
+        number={3}
+        title="Set a parent task (optional)"
+        text="Search by key or summary. Any task in the project can be a parent. Leave blank to create top-level issues."
+      />
+
+      <Step
+        number={4}
+        title="Required fields"
+        text="Set default values for any field the project requires (sprint, priority, component, labels, etc.). These values are applied silently — you do not see them in the form."
+      />
+
+      <Step
+        number={5}
+        title="Name and save"
+        text="Give the workflow a short name that describes the context, e.g. 'QA bugs', 'UX feedback', 'PM tasks'."
+      />
+
+      <Divider />
+
+      <Card>
+        <h3 style={cardHeadingStyle}>Import / export</h3>
+        <Text>
+          Use the import and export buttons on the Workflows tab to back up your workflows or share
+          them with a colleague. Exported as workflows-jirawm.json. Importing merges with existing
+          workflows — existing entries are not overwritten.
+        </Text>
+      </Card>
+
+      <SmallText>
+        💡 Tip: one workflow per context works better than one workflow for everything. If a project
+        has both a QA sprint and a general backlog, make two workflows.
+      </SmallText>
     </div>
   );
 }
@@ -1017,6 +1045,10 @@ function HelpContent({ section }: { section: HelpSection }) {
       return <BulkUploadSection />;
     case 'screenshot':
       return <ScreenshotSection />;
+    case 'editor':
+      return <EditorSection />;
+    case 'workflows':
+      return <WorkflowsSection />;
     case 'feedback':
       return <FeedbackSection />;
     case 'changelog':
