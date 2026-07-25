@@ -85,6 +85,10 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
   const [cropDragging, setCropDragging] = useState(false);
   const [cropMode, setCropMode] = useState(false);
   const cropStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dragModeRef = useRef<'create' | 'move' | 'resize-nw' | 'resize-n' | 'resize-ne' | 'resize-e' | 'resize-se' | 'resize-s' | 'resize-sw' | 'resize-w'>('create');
+  const moveOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const preDragSelectionRef = useRef<CropRect | null>(null);
+  const hoverCursorRef = useRef<string>('crosshair');
 
   // Capture details state
   const initialOverridesRef = useRef<MetadataOverrides | null>(normalizeOverrides(metadataOverrides));
@@ -576,9 +580,53 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     })();
   };
 
+  function getImageBounds(): { x: number; y: number; width: number; height: number } | null {
+    const canvas = canvasInstanceRef.current;
+    if (!canvas) return null;
+    const { w: naturalW, h: naturalH } = naturalSizeRef.current;
+    if (!naturalW || !naturalH) return null;
+    const scale = scaleRef.current;
+    const width = Math.round(naturalW * scale);
+    const height = Math.round(naturalH * scale);
+    const canvasEl = canvas.getElement();
+    if (!canvasEl) return null;
+    const container = containerRef.current;
+    if (!container) return null;
+    const containerRect = container.getBoundingClientRect();
+    const canvasRect = canvasEl.getBoundingClientRect();
+    const x = canvasRect.left - containerRect.left;
+    const y = canvasRect.top - containerRect.top;
+    return { x, y, width, height };
+  }
+
+  function clampSelectionToImage(selection: CropRect): CropRect {
+    const bounds = getImageBounds();
+    if (!bounds) return selection;
+    const x = Math.max(bounds.x, Math.min(selection.x, bounds.x + bounds.width - selection.width));
+    const y = Math.max(bounds.y, Math.min(selection.y, bounds.y + bounds.height - selection.height));
+    return { x, y, width: selection.width, height: selection.height };
+  }
+
+  function normalizeSelection(selection: CropRect): CropRect {
+    const x = selection.width < 0 ? selection.x + selection.width : selection.x;
+    const y = selection.height < 0 ? selection.y + selection.height : selection.y;
+    return { x, y, width: Math.abs(selection.width), height: Math.abs(selection.height) };
+  }
+
+  function seedDefaultCropSelection(): CropRect | null {
+    const bounds = getImageBounds();
+    if (!bounds) return null;
+    const width = Math.round(bounds.width * 0.6);
+    const height = Math.round(bounds.height * 0.6);
+    const x = bounds.x + Math.round((bounds.width - width) / 2);
+    const y = bounds.y + Math.round((bounds.height - height) / 2);
+    return { x, y, width, height };
+  }
+
   function startCropMode() {
+    const nextSelection = seedDefaultCropSelection();
     setCropMode(true);
-    setCropSelection(null);
+    setCropSelection(nextSelection);
     setActiveTool('crop');
   }
 
@@ -665,35 +713,195 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     img.src = croppedDataUrl;
   }
 
+  function classifyCropPoint(x: number, y: number, selection: CropRect): typeof dragModeRef.current {
+    const handleSize = 8;
+    const handles: Array<{ mode: typeof dragModeRef.current; cx: number; cy: number }> = [
+      { mode: 'resize-nw', cx: selection.x, cy: selection.y },
+      { mode: 'resize-ne', cx: selection.x + selection.width, cy: selection.y },
+      { mode: 'resize-sw', cx: selection.x, cy: selection.y + selection.height },
+      { mode: 'resize-se', cx: selection.x + selection.width, cy: selection.y + selection.height },
+      { mode: 'resize-n', cx: selection.x + selection.width / 2, cy: selection.y },
+      { mode: 'resize-s', cx: selection.x + selection.width / 2, cy: selection.y + selection.height },
+      { mode: 'resize-w', cx: selection.x, cy: selection.y + selection.height / 2 },
+      { mode: 'resize-e', cx: selection.x + selection.width, cy: selection.y + selection.height / 2 },
+    ];
+    for (const h of handles) {
+      if (Math.hypot(x - h.cx, y - h.cy) <= handleSize) return h.mode;
+    }
+    if (x >= selection.x && x <= selection.x + selection.width && y >= selection.y && y <= selection.y + selection.height) {
+      return 'move';
+    }
+    return 'create';
+  }
+
+  function getCursorForMode(mode: typeof dragModeRef.current): string {
+    switch (mode) {
+      case 'resize-nw':
+      case 'resize-se':
+        return 'nwse-resize';
+      case 'resize-ne':
+      case 'resize-sw':
+        return 'nesw-resize';
+      case 'resize-n':
+      case 'resize-s':
+        return 'ns-resize';
+      case 'resize-w':
+      case 'resize-e':
+        return 'ew-resize';
+      case 'move':
+        return 'move';
+      default:
+        return 'crosshair';
+    }
+  }
+
+  function updateHoverCursor(e: React.MouseEvent<HTMLDivElement>) {
+    if (!cropMode || cropDragging || !cropSelection) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const mode = classifyCropPoint(x, y, cropSelection);
+    hoverCursorRef.current = getCursorForMode(mode);
+    e.currentTarget.style.cursor = hoverCursorRef.current;
+  }
+
   function handleCropMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     if (!cropMode) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    const currentSelection = cropSelection;
+    if (!currentSelection) {
+      cropStartRef.current = { x, y };
+      dragModeRef.current = 'create';
+      setCropDragging(true);
+      setCropSelection({ x, y, width: 0, height: 0 });
+      return;
+    }
+    const mode = classifyCropPoint(x, y, currentSelection);
+    dragModeRef.current = mode;
     cropStartRef.current = { x, y };
+    preDragSelectionRef.current = { ...currentSelection };
+    if (mode === 'move') {
+      moveOffsetRef.current = { x: x - currentSelection.x, y: y - currentSelection.y };
+    }
     setCropDragging(true);
-    setCropSelection({ x, y, width: 0, height: 0 });
   }
 
   function handleCropMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (!cropMode || !cropDragging || !cropStartRef.current) return;
+    if (!cropMode) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const startX = cropStartRef.current.x;
-    const startY = cropStartRef.current.y;
-    setCropSelection({
-      x: Math.min(startX, x),
-      y: Math.min(startY, y),
-      width: Math.abs(x - startX),
-      height: Math.abs(y - startY),
-    });
+
+    if (!cropDragging || !cropStartRef.current) {
+      updateHoverCursor(e);
+      return;
+    }
+
+    const start = cropStartRef.current;
+    const bounds = getImageBounds();
+    if (!bounds) return;
+
+    const applyBounds = (rectX: number, rectY: number, rectW: number, rectH: number): CropRect => {
+      const minSize = 20;
+      const clampedW = Math.max(minSize, Math.min(rectW, bounds.width));
+      const clampedH = Math.max(minSize, Math.min(rectH, bounds.height));
+      const maxX = bounds.x + bounds.width - clampedW;
+      const maxY = bounds.y + bounds.height - clampedH;
+      const clampedX = Math.max(bounds.x, Math.min(rectX, maxX));
+      const clampedY = Math.max(bounds.y, Math.min(rectY, maxY));
+      return { x: clampedX, y: clampedY, width: clampedW, height: clampedH };
+    };
+
+    const mode = dragModeRef.current;
+    const prev = preDragSelectionRef.current;
+
+    if (mode === 'create') {
+      const nextX = Math.max(bounds.x, Math.min(Math.min(start.x, x), bounds.x + bounds.width - 20));
+      const nextY = Math.max(bounds.y, Math.min(Math.min(start.y, y), bounds.y + bounds.height - 20));
+      const maxW = bounds.x + bounds.width - nextX;
+      const maxH = bounds.y + bounds.height - nextY;
+      setCropSelection({
+        x: nextX,
+        y: nextY,
+        width: Math.max(20, Math.min(Math.abs(x - start.x), maxW)),
+        height: Math.max(20, Math.min(Math.abs(y - start.y), maxH)),
+      });
+      return;
+    }
+
+    if (mode === 'move' && prev) {
+      const rawX = x - moveOffsetRef.current.x;
+      const rawY = y - moveOffsetRef.current.y;
+      const clamped = applyBounds(rawX, rawY, prev.width, prev.height);
+      setCropSelection(clamped);
+      return;
+    }
+
+    if (mode.startsWith('resize-') && prev) {
+      let left = prev.x;
+      let top = prev.y;
+      let right = prev.x + prev.width;
+      let bottom = prev.y + prev.height;
+
+      if (mode.includes('w')) left = x;
+      if (mode.includes('e')) right = x;
+      if (mode.includes('n')) top = y;
+      if (mode.includes('s')) bottom = y;
+
+      let nextX = Math.min(left, right);
+      let nextY = Math.min(top, bottom);
+      let nextW = Math.abs(right - left);
+      let nextH = Math.abs(bottom - top);
+
+      const minSize = 20;
+      if (nextW < minSize) {
+        if (mode.includes('w')) nextX = right - minSize;
+        nextW = minSize;
+      }
+      if (nextH < minSize) {
+        if (mode.includes('n')) nextY = bottom - minSize;
+        nextH = minSize;
+      }
+
+      const maxX = bounds.x + bounds.width;
+      const maxY = bounds.y + bounds.height;
+      if (nextX < bounds.x) {
+        nextW -= bounds.x - nextX;
+        nextX = bounds.x;
+      }
+      if (nextY < bounds.y) {
+        nextH -= bounds.y - nextY;
+        nextY = bounds.y;
+      }
+      if (nextX + nextW > maxX) nextW = maxX - nextX;
+      if (nextY + nextH > maxY) nextH = maxY - nextY;
+
+      setCropSelection({ x: nextX, y: nextY, width: Math.max(minSize, nextW), height: Math.max(minSize, nextH) });
+    }
   }
 
   function handleCropMouseUp() {
     if (!cropMode) return;
     setCropDragging(false);
     cropStartRef.current = null;
+
+    setCropSelection((prev) => {
+      if (!prev) {
+        const fallback = preDragSelectionRef.current ?? seedDefaultCropSelection();
+        return fallback;
+      }
+      const normalized = normalizeSelection(prev);
+      if (normalized.width < 20 || normalized.height < 20) {
+        const fallback = preDragSelectionRef.current ?? seedDefaultCropSelection();
+        return fallback;
+      }
+      return clampSelectionToImage(normalized);
+    });
+
+    dragModeRef.current = 'create';
+    preDragSelectionRef.current = null;
   }
 
   const toolButton = (tool: Tool, label: string, disabled = false, title?: string) => {
@@ -839,19 +1047,20 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
         >
           <canvas ref={canvasRef} />
           {cropMode && cropSelection && (
-            <div
-              style={{
-                position: 'absolute',
-                left: cropSelection.x,
-                top: cropSelection.y,
-                width: cropSelection.width,
-                height: cropSelection.height,
-                border: '1px solid #ffffff',
-                background: 'transparent',
-                boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-                pointerEvents: 'none',
-              }}
-            >
+          <div
+            style={{
+              position: 'absolute',
+              left: cropSelection.x,
+              top: cropSelection.y,
+              width: cropSelection.width,
+              height: cropSelection.height,
+              border: '1px solid #ffffff',
+              background: 'transparent',
+              boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+              pointerEvents: 'none',
+              cursor: hoverCursorRef.current,
+            }}
+          >
               <div style={{ position: 'absolute', top: -4, left: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
               <div style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />
               <div style={{ position: 'absolute', bottom: -4, left: -4, width: 8, height: 8, background: '#fff', border: '1px solid rgba(0,0,0,0.4)' }} />

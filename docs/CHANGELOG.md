@@ -1,5 +1,19 @@
 # JiraWM — Changelog
 
+## 3.1.1 — Crop tool improvements
+
+### Fixed
+- Crop toolbar button now correctly enters crop mode.
+- Crop dim overlay now darkens the area outside the selection instead of the selection itself.
+- Crop Apply no longer produces a blank canvas.
+
+### Changed
+- Crop mode now opens with a default centered selection (60% of the image).
+- Selection can be moved by dragging its body.
+- Selection can be resized by dragging any of the eight handles.
+- Dragging outside the selection starts a new selection.
+- Tool-activation single-letter keyboard shortcuts removed to avoid conflicts with text editing.
+
 ## 3.1.0 — Release packaging
 
 ### Added
