@@ -79,7 +79,7 @@ Statičan informativni panel unutar Side Panel-a sa sidebar navigacijom unutar t
 - Hardkodovan u komponentu (ne fetchuje se iz fajla)
 - Prikazuje verzije u opadajućem redosledu (najnovija prva)
 - Svaka verzija = kartica sa: verzijom, datumom, Major/Minor/Patch badge, listom promena
-- Izvor istine: CHANGELOG.md u root-u projekta
+- Izvor istine: docs/CHANGELOG.md
 - Changelog kartica u Help-u se ažurira ručno uz svaki version bump
 
 #### Sub-komponente

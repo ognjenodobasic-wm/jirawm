@@ -12,6 +12,7 @@ dist
 key.pem
 key.pub.txt
 release/
+temp/
 dist-ssr
 *.local
 

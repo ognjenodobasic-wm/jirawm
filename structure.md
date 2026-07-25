@@ -15,8 +15,6 @@ Git ignore rules — node_modules, dist, etc.
 ### `.oxlintrc.json`
 OxLint linter configuration.
 
-### `CHANGELOG.md`
-Version history for all releases (1.0.0 → 3.0.1). Source of truth for changelog data displayed in the Help panel.
 
 ### `CLAUDE.md`
 Claude Code instructions — project overview, architecture, build commands, rules, known pitfalls. Read before every task.
@@ -54,6 +52,9 @@ Vite build configuration with @crxjs/vite-plugin for Chrome extension bundling, 
 
 ### `docs/ARCHITECTURE.md`
 Detailed architecture docs — three JS contexts, storage map, field serialization, image ingest pipeline, capture metadata, permission model, editor state machine, known pitfalls.
+
+### `docs/CHANGELOG.md`
+Version history for all releases (1.0.0 → 3.0.1). Source of truth for changelog data displayed in the Help panel.
 
 ### `docs/jirawm-spec-v1.2.md`
 Authoritative feature specification — functional requirements, data models, storage schema, phase checklist.
@@ -148,7 +149,7 @@ Workflow management tab — displays workflows as cards (name, project, parent s
 Settings panel — Jira domain/email/API token input, test connection, accordion-based settings sections for image handling (quality, maxWidth, transparency fill), screenshot naming (single/bulk numbering), capture details (position, field toggles), and page access permission status with Grant button.
 
 ### `src/sidepanel/Help.tsx`
-Help panel with sidebar navigation — 7 sections: Intro, Quick setup, Single task, Bulk upload, Screenshot, Feedback, Changelog. Hardcoded changelog data synced with CHANGELOG.md. Covers annotation editor, capture details, and crop tool documentation.
+Help panel with sidebar navigation — 7 sections: Intro, Quick setup, Single task, Bulk upload, Screenshot, Feedback, Changelog. Hardcoded changelog data synced with docs/CHANGELOG.md. Covers annotation editor, capture details, and crop tool documentation.
 
 ### `src/sidepanel/ConnectJiraPrompt.tsx`
 Empty state prompt shown when Jira is not configured — directs user to open Settings.

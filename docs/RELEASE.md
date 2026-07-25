@@ -8,7 +8,7 @@ Ovaj dokument opisuje korake za pripremu i objavljivanje nove JiraWM verzije. Sv
    - Ažurirajte `version` u `manifest.json`.
    - Ažurirajte `version` u `package.json` na istu vrednost.
 
-2. **Ažurirajte CHANGELOG.md**
+2. **Ažurirajte docs/CHANGELOG.md**
    - Dodajte novu sekciju na vrhu sa datumom i promenama.
 
 3. **Proverite TypeScript**
