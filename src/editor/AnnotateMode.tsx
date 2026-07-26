@@ -565,18 +565,24 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
 
         if (result.resultDataUrl) {
           await setLocal('annotationResult', { dataUrl: result.resultDataUrl, screenshotId });
-          chrome.runtime.sendMessage({ type: 'ANNOTATION_DONE' });
+          await chrome.runtime.sendMessage({ type: 'ANNOTATION_DONE' }).catch((err) => {
+            console.error('Failed to send ANNOTATION_DONE message:', err);
+          });
         }
         if (result.overridesDirty) {
-          chrome.runtime.sendMessage({
+          await chrome.runtime.sendMessage({
             type: 'CAPTURE_DETAILS_UPDATED',
             screenshotId,
             overrides: result.overrides,
+          }).catch((err) => {
+            console.error('Failed to send CAPTURE_DETAILS_UPDATED message:', err);
           });
         }
 
         isClosingIntentionallyRef.current = true;
         await onClose();
+      } catch (err) {
+        console.error('handleDone failed:', err);
       } finally {
         setIsSaving(false);
       }
