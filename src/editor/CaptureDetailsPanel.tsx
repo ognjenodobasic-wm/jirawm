@@ -237,10 +237,17 @@ function FieldRow({ field, allowEdit, onValueChange, onToggle, onRevert }: Field
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-start',
+          gap: 6,
           marginBottom: 4,
         }}
       >
+        <input
+          type="checkbox"
+          checked={field.enabled}
+          onChange={onToggle}
+          style={{ width: 14, height: 14, cursor: 'pointer', margin: 0, flexShrink: 0 }}
+        />
         <span
           style={{
             fontSize: 11,
@@ -251,12 +258,6 @@ function FieldRow({ field, allowEdit, onValueChange, onToggle, onRevert }: Field
         >
           {field.label}
         </span>
-        <input
-          type="checkbox"
-          checked={field.enabled}
-          onChange={onToggle}
-          style={{ width: 14, height: 14, cursor: 'pointer', margin: 0, flexShrink: 0 }}
-        />
       </div>
       <input
         type="text"
