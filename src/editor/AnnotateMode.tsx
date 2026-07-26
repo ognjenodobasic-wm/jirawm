@@ -863,8 +863,8 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
       </div>
 
       {cropMode && (
-        <div style={{ height: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'var(--chrome-surface)', borderBottom: '1px solid var(--chrome-border)' }}>
-          <span style={{ fontSize: 11, color: 'var(--chrome-text-secondary)' }}>Drag to select a region</span>
+        <div style={{ height: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#fff3cd', borderBottom: '1px solid #e6c200' }}>
+          <span style={{ fontSize: 11, color: '#5c4a00' }}>Drag to select a region</span>
           <button
             onClick={applyCrop}
             disabled={!cropSelection || cropSelection.width < 20 || cropSelection.height < 20}
