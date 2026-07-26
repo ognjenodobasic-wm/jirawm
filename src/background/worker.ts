@@ -100,6 +100,7 @@ async function processBulkTasks(progress: BulkTask[], workflow: Workflow): Promi
   await chrome.alarms.create('keepAlive', { periodInMinutes: 0.5 });
 
   let createdCount = 0;
+  let attachmentOnlyCount = 0;
   let failedCount = 0;
 
   for (let i = 0; i < progress.length; i++) {
@@ -110,7 +111,22 @@ async function processBulkTasks(progress: BulkTask[], workflow: Workflow): Promi
       if (task.status === 'uploading' && task.issueKey) {
         await attachScreenshot(task.issueKey, task.screenshotBase64, task.attachmentName ?? `${task.issueKey}-screenshot.jpg`);
         task.status = 'done';
-        createdCount++;
+        attachmentOnlyCount++;
+        await saveProgress(progress);
+        continue;
+      }
+
+      // If the task already has an issueKey (e.g. failed during attachment on a previous
+      // run or retry), skip createIssue entirely and jump straight to uploading to avoid
+      // creating a duplicate Jira issue.
+      if (task.issueKey) {
+        task.status = 'uploading';
+        await saveProgress(progress);
+
+        await attachScreenshot(task.issueKey, task.screenshotBase64, task.attachmentName ?? `${task.issueKey}-screenshot.jpg`);
+
+        task.status = 'done';
+        attachmentOnlyCount++;
         await saveProgress(progress);
         continue;
       }
@@ -157,10 +173,30 @@ async function processBulkTasks(progress: BulkTask[], workflow: Workflow): Promi
 
   await chrome.alarms.clear('keepAlive');
 
+  const parts: string[] = [];
+
+  if (createdCount > 0) {
+    parts.push(
+      createdCount === 1 ? '1 issue created' : `${createdCount} issues created`,
+    );
+  }
+  if (attachmentOnlyCount > 0) {
+    parts.push(
+      attachmentOnlyCount === 1
+        ? '1 attachment retried'
+        : `${attachmentOnlyCount} attachments retried`,
+    );
+  }
+  if (failedCount > 0) {
+    parts.push(
+      failedCount === 1 ? '1 failed' : `${failedCount} failed`,
+    );
+  }
+
   const notificationMessage =
-    failedCount > 0
-      ? `${createdCount}/${progress.length} tasks created — ${failedCount} failed`
-      : `${createdCount}/${progress.length} tasks created ✅`;
+    parts.length > 0
+      ? parts.join(' · ') + (failedCount === 0 ? ' ✅' : '')
+      : 'No tasks processed';
 
   await chrome.notifications.create({
     type: 'basic',

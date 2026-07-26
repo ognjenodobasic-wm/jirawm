@@ -44,7 +44,6 @@ if (!existsSync(RELEASE_DIR)) {
 const folderName = `jirawm-v${version}`;
 const zipName = `${folderName}.zip`;
 const zipPath = resolve(RELEASE_DIR, zipName);
-const output = process.stdout;
 
 const archive = new ZipArchive({ zlib: { level: 9 } });
 

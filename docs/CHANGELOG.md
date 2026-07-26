@@ -1,5 +1,23 @@
 # JiraWM — Changelog
 
+## 3.1.2 — Bulk retry attachment-only fix + bulk filename numbering fix + editor handoff race fix
+
+### Fixed
+- Retry Failed no longer creates a duplicate Jira issue when a task already has an `issueKey`.
+  If `createIssue` succeeded but `attachScreenshot` failed, the task is now retried from the
+  `uploading` state — attachment only, no second `POST /issue` call.
+- State transition `waiting → uploading` (with saved issueKey) is persisted to
+  `chrome.storage.local` before the attachment attempt so that a worker restart mid-retry
+  can resume correctly.
+- Bulk upload filename numbering no longer accumulates prefixes on add/remove row.
+  Each row now keeps a stable `originalFilename` used for renumbering, preventing
+  `1 - 1 - slika.jpg` artefacts.
+- Annotation editor / side panel storage handoff race fixed: editor no longer deletes
+  `annotationResult` on close, so Side Panel can reliably read and apply saved annotations
+  before cleanup.
+- Bulk Upload start/retry now handles async worker response. If worker rejects `START_BULK`,
+  UI stops processing state, cancels polling, and shows an explicit error instead of hanging.
+
 ## 3.1.1 — Crop tool improvements
 
 ### Fixed

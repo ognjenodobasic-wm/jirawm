@@ -73,6 +73,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [canvasDirty, setCanvasDirty] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const isClosingIntentionallyRef = useRef(false);
 
   const historyRef = useRef<string[]>([]);
   const historyCursorRef = useRef(-1);
@@ -488,7 +489,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
 
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
-      if (hasUnsavedWork) {
+      if (hasUnsavedWork && !isClosingIntentionallyRef.current) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -573,6 +574,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
           });
         }
 
+        isClosingIntentionallyRef.current = true;
         await onClose();
       } finally {
         setIsSaving(false);

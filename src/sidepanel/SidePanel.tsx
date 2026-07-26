@@ -54,11 +54,20 @@ function SidePanel() {
     getLocal<Workflow[]>('jirawm_workflows').then((wf) => {
       const list = wf ?? [];
       setWorkflows(list);
+
+      // Prefer an explicit ID passed by the caller (e.g. after creating a new workflow).
       if (preferId && list.some((w) => w.id === preferId)) {
         setSelectedWorkflowId(preferId);
-      } else if (list.length > 0 && !selectedWorkflowId) {
-        setSelectedWorkflowId(list[0].id);
+        return;
       }
+
+      // If the currently selected workflow still exists, keep it.
+      if (selectedWorkflowId && list.some((w) => w.id === selectedWorkflowId)) {
+        return;
+      }
+
+      // Fall back to the first workflow, or empty string if the list is empty.
+      setSelectedWorkflowId(list.length > 0 ? list[0].id : '');
     });
   }
 

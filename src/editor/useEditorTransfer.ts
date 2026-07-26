@@ -12,7 +12,9 @@ export function useEditorTransfer() {
 
   async function cleanup(): Promise<void> {
     return new Promise((resolve) => {
-      chrome.storage.local.remove(['pendingEditor', 'annotationResult'], resolve);
+      // Editor may close before the Side Panel consumes annotationResult.
+      // Do not remove annotationResult here; Side Panel owns its lifecycle.
+      chrome.storage.local.remove(['pendingEditor'], resolve);
     });
   }
 

@@ -57,6 +57,7 @@ Three isolated JavaScript contexts. They do **not** share memory.
   - `uploading` with an `issueKey` may resume attachment only.
   - `creating` without an `issueKey` must become `failed` and require manual retry, because automatic retry could create a duplicate Jira issue.
   - `done` and `failed` are skipped.
+- **If a task has an existing `issueKey` when processed** (regardless of its `status` label, e.g. `waiting` after a "Retry Failed" click), `processBulkTasks` must skip `createIssue` and go straight to `uploading` → `attachScreenshot`. This prevents duplicate Jira issues when attachment failed on a previous run.
 - Maintain the in-memory `activeBulkRun` guard (or an equivalent single-run mechanism) so recovery and a new `START_BULK` signal cannot process the same batch concurrently.
 - Do not weaken these idempotency and recovery protections.
 

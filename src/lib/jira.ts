@@ -1,5 +1,13 @@
-import type { AuthConfig, IssueTypeMeta, JiraField, JiraUser } from '../types';
-import type { ADFDoc } from './capture-adf';
+import type {
+  AuthConfig,
+  IssueTypeMeta,
+  JiraField,
+  JiraUser,
+  ScreenshotItem,
+  MetadataPosition,
+  CaptureDetailsSettings,
+} from '../types';
+import { buildDescriptionADF, type ADFDoc } from './capture-adf';
 import { getLocal, setLocal } from './storage';
 
 let _auth: AuthConfig | null = null;
@@ -37,12 +45,32 @@ async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
   return res.status === 204 ? null : res.json();
 }
 
-function toADF(text: string): object {
+function toADF(text: string): ADFDoc {
   return {
     type: 'doc',
     version: 1,
     content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
   };
+}
+
+function isADFDoc(value: unknown): value is ADFDoc {
+  return Boolean(value && typeof value === 'object' && (value as ADFDoc).type === 'doc');
+}
+
+function buildDescriptionField(
+  description: unknown,
+  options?: {
+    screenshots: ScreenshotItem[];
+    position: MetadataPosition;
+    captureDetailsSettings: CaptureDetailsSettings;
+  },
+): ADFDoc {
+  if (isADFDoc(description)) return description;
+  if (options) {
+    const userText = typeof description === 'string' ? description : '';
+    return buildDescriptionADF(userText, options.screenshots, options.position, options.captureDetailsSettings);
+  }
+  return toADF(typeof description === 'string' ? description : '');
 }
 
 function serializeField(fieldId: string, value: string, fieldMeta: JiraField[]): unknown {
@@ -213,16 +241,17 @@ export async function createIssue(params: {
   parentKey?: string;
   fields: Record<string, unknown>;
   fieldMeta: JiraField[];
+  descriptionOptions?: {
+    screenshots: ScreenshotItem[];
+    position: MetadataPosition;
+    captureDetailsSettings: CaptureDetailsSettings;
+  };
 }): Promise<{ id: string; key: string }> {
   const fields: Record<string, unknown> = {
     project: { key: params.projectKey },
     summary: params.summary,
     issuetype: { name: params.issueType },
-    description: (() => {
-      const d = params.fields['description'];
-      if (d !== null && typeof d === 'object' && (d as ADFDoc).type === 'doc') return d as ADFDoc;
-      return toADF(typeof d === 'string' ? d : '');
-    })(),
+    description: buildDescriptionField(params.fields['description'], params.descriptionOptions),
   };
 
   for (const [fieldId, value] of Object.entries(params.fields)) {

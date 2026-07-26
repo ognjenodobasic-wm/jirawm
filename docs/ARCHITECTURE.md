@@ -58,9 +58,8 @@ Base URL: `https://{domain}.atlassian.net/rest/api/3`. Svi pozivi idu kroz `apiF
    └─ adds ScreenshotItem to screenshots[]
 [UI] Create Task (submit)
    └─ getLocal('auth') → setAuth()
-   └─ buildDescriptionADF(description, screenshots, position, captureDetailsSettings)
-   │    └─ merges user text + capture details ADF block
-   └─ createIssue({summary, projectKey, issueType, parentKey?, fields, fieldMeta})
+   └─ createIssue({summary, projectKey, issueType, parentKey?, fields, fieldMeta, descriptionOptions})
+        ├─ buildDescriptionADF() u Jira sloju (spaja plain description + capture details)
         ├─ serializeField() na svako polje
         └─ POST /issue           →  { id, key }   (npr. AT-234)
    └─ attachScreenshot(key, dataURL, filename)
@@ -76,20 +75,27 @@ Create issue i attach su **dva odvojena poziva**. `issue.key` stiže iz create o
    └─ buildTasks(): svaki fajl → base64 (BulkTask[])
    └─ setLocal('jirawm_bulk_progress', tasks)
    └─ sendMessage({type:'START_BULK', workflowId})
-   └─ startPolling(): svake 1s čita jirawm_bulk_progress → ažurira tabelu
+       └─ čeka async odgovor worker-a `{ ok: true }`
+          ├─ ok: startPolling(): svake 1s čita jirawm_bulk_progress → ažurira tabelu
+          └─ greška (`ok:false` ili runtime error): prekida polling, `isProcessing=false`, prikazuje error banner u UI
 
 [Worker processBulkTasks]  ── SEKVENCIJALNO, jedan po jedan ──
    └─ getLocal('auth') + getLocal('jirawm_workflows')  → setAuth()
    └─ resumeBulkIfNeeded()  (automatski oporavak prekinutih bulk sesija posle restarta workera)
    └─ chrome.alarms.create('keepAlive', {periodInMinutes: 0.33})
-   └─ za svaki task (preskače status==='done'):
-        status='creating'  → saveProgress()
-        createIssue(...)    → status='uploading', issueKey → saveProgress()
-        attachScreenshot()  → status='done'
-        (greška → status='failed', task.error)
+   └─ za svaki task (preskače status==='done' i status==='failed'):
+        Ako task.issueKey postoji (npr. retry nakon pada attachmenta):
+          status='uploading' → saveProgress()
+          attachScreenshot()  → status='done'
+          (greška → status='failed', task.error)
+        Inače:
+          status='creating'  → saveProgress()
+          createIssue(...)    → status='uploading', issueKey → saveProgress()
+          attachScreenshot()  → status='done'
+          (greška → status='failed', task.error)
         saveProgress() posle svakog koraka
    └─ chrome.alarms.clear('keepAlive')
-   └─ chrome.notifications.create(...)  "X/Y tasks created"
+   └─ chrome.notifications.create(...)  "N issues created · M attachments retried · K failed" (samo nivoi koji su >0, sa ✅ na kraju ako nema failed)
 ```
 
 Bulk je uvek sekvencijalan (nikad `Promise.all`). Status se piše u `storage.local` posle svakog koraka da bi UI poll to video.
@@ -110,7 +116,7 @@ Jira odbija (400) ako se strukturisano polje pošalje kao goli string. `serializ
 | `number` | `Number(value)` | numerička polja |
 | ostalo / nepoznato | `value` (string) | text, textarea |
 
-**Gde se poziva:** unutar `createIssue()`, u petlji kroz `params.fields` (preskače `description`, koji ide kroz `buildDescriptionADF`). Poziva se i iz Single moda i iz bulk workera, jer oba prolaze kroz `createIssue` i prosleđuju `workflow.fieldMeta`.
+**Gde se poziva:** unutar `createIssue()`, u petlji kroz `params.fields` (preskače `description`, koji `createIssue` centralno pretvara u ADF preko `buildDescriptionField`). Poziva se i iz Single moda i iz bulk workera, jer oba prolaze kroz `createIssue` i prosleđuju `workflow.fieldMeta`.
 
 `fieldMeta` je **runtime-only** — nije persisted u storage. `saveWorkflow` u `src/lib/workflows.ts` ga eksplicitno briše pre nego što se workflow pohrani. On se rekonstruiše svaki put kada se workflow koristi, prikupljanjem createmeta iz Jira API-ja (ili iz kešinga). Ovo omogućava da se serializacija radi sa uvek-svežim informacijama o poljima.
 
@@ -211,7 +217,7 @@ Ovo izbegava potrebu za `scripting` permisijom.
 - Browser i OS (iz `navigator.userAgent`)
 
 ### Prikaz u description ADF-u
-`buildDescriptionADF()` u `src/lib/capture-adf.ts` gradi ADF doc koji spaja korisnički tekst i capture details blok. `buildCaptureDetailLines()` je jedinstven izvor istine za linije koje se prikazuju — koristi se i za ADF list items i za preview u SingleMode panelu.
+`buildDescriptionADF()` u `src/lib/capture-adf.ts` gradi ADF doc koji spaja korisnički tekst i capture details blok, ali se finalno poziva iz Jira sloja (`src/lib/jira.ts`), ne iz UI submit koda. UI prosleđuje plain `description` plus `descriptionOptions` (screenshots + settings), a `createIssue()` radi finalnu ADF konverziju. Ako caller pošalje već validan ADF doc, Jira sloj ga koristi direktno (bez duple konverzije). `buildCaptureDetailLines()` je jedinstven izvor istine za linije koje se prikazuju — koristi se i za ADF list items i za preview u SingleMode panelu.
 
 ---
 
@@ -263,14 +269,14 @@ Dva privremena ključa u `chrome.storage.local` služe kao most između Side Pan
 
 | Ključ | Piše | Čita | Briše |
 |-------|------|------|-------|
-| `pendingEditor` | `SingleMode.openEditor` | `AnnotationEditor` on mount | `SingleMode` ANNOTATION_DONE listener |
-| `annotationResult` | `AnnotateMode` (Save) | `SingleMode` ANNOTATION_DONE listener | `SingleMode` ANNOTATION_DONE listener |
+| `pendingEditor` | `SingleMode.openEditor` | `AnnotationEditor` on mount | `AnnotationEditor` close (always) ili `SingleMode` posle uspešne potrošnje resulta |
+| `annotationResult` | `AnnotateMode` (Save) | `SingleMode` ANNOTATION_DONE listener | Isključivo `SingleMode` nakon uspešnog read/apply (ili safe discard ako screenshot više ne postoji) |
 
 **pendingEditor** sadrži `{ dataUrl, screenshotId }`. Screenshot ID se koristi umesto array indexa zato što korisnik može da obriše screenshot dok je editor popup otvoren — index-based matching bi napisao anotaciju na pogrešnu sliku.
 
 **annotationResult** sadrži `{ dataUrl, screenshotId }`. Ako screenshot sa datim ID-om više ne postoji (obrisan je), rezultat se tiho odbacuje.
 
-Flow: Side Panel upisuje `pendingEditor` → otvara popup → popup čita i prikazuje screenshot → "Save" upisuje `annotationResult` + šalje `ANNOTATION_DONE` message → Side Panel čita result, proverava da li screenshot postoji, zamenjuje thumbnail ako postoji, briše oba ključa.
+Flow: Side Panel upisuje `pendingEditor` → otvara popup → popup čita i prikazuje screenshot → "Save" upisuje `annotationResult` + šalje `ANNOTATION_DONE` message → Side Panel asinhrono čita result, proverava da li screenshot postoji, zamenjuje thumbnail ako postoji (ili safe-discard ako je obrisan), pa tek onda briše `annotationResult` (i `pendingEditor`). Popup pri zatvaranju čisti samo `pendingEditor`; ne sme da briše `annotationResult`.
 
 ### Editor state machine
 
@@ -315,6 +321,7 @@ chrome.windows.onBoundsChanged.addListener(listener);
 1. **`accountId` ključ se čita ali se nikad ne upisuje.** — **Popravljeno.** `Settings.handleSave` sada snima `accountId` i u `auth` objekat i kao top-level `accountId` ključ (`setLocal('accountId', accountId)`). `SidePanel` auth gate čita top-level ključ i radi ispravno.
 2. **select/option defaults kao goli string** — rešeno preko `serializeField`, ali samo za tipove iz tabele gore. Egzotičniji custom tipovi (cascading select, version, component) padaju u `default` granu i idu kao string → mogu vratiti 400.
 3. **Worker restart recovery za bulk.** Implementiran `resumeBulkIfNeeded()`: posle restarta workera, ako `jirawm_bulk_progress` sadrži taskove koji nisu `done`/`failed`, worker automatski nastavlja obradu. Task sa statusom `uploading` i postojećim `issueKey` nastavlja samo kačenjem screenshota (bez ponovnog kreiranja). Task sa statusom `creating` i bez `issueKey` se NE automatski ponovo kreira — označava se kao `failed` sa porukom `Bulk processing was interrupted while creating the Jira issue. Retry manually to avoid a possible duplicate.`, a korisnik ga može retry-ovati iz UI-a. In-memory guard (`activeBulkRun`) sprečava paralelno pokretanje više bulk obrada ako `START_BULK` poruka stigne dok recovery još traje.
+   **Retry s postojećim issueKey.** Ako task ima `issueKey` ali nije `done` (npr. `attachScreenshot` je pao), `processBulkTasks` preskače `createIssue` i odmah prelazi u stanje `uploading` → re-attach. Ovo važi i za eksplicitni "Retry Failed" iz UI-a (BulkMode.retryFailed resetuje status na `waiting`, ali čuva `issueKey` u storage-u) i za automatski restart workera.
 4. **Capture must stay PNG (double compression trap).** `captureVisibleTab` poziv koristi `format: 'png'`. Ako se promeni na `format: 'jpeg'`, normalizeImage ce kompresovati JPEG u JPEG — dvostruka kompresija koja primecuje omeksavanje teksta. PNG je transient i nikad se ne cuva.
 5. **`chrome.permissions.request` i user gesture requirement.** Chrome zahteva da se `chrome.permissions.request` pozove sinhrono unutar click handlera — bilo koji `await` pre njega uzrokuje da Chrome odbaci zahtev tiho, bez konzolne greške. Ovo je lako promašiti jer se handleCapture normalno await-uje.
 6. **Crop konvertuje screen space u image space.** Crop rectangle se crta u screen koordinatama, ali se konvertuje u image-space koristeći `1 / scale` faktor. Pogrešan scale factor (npr. korišćenje CSS umesto display scale) crops plausible ali pogrešnu region.

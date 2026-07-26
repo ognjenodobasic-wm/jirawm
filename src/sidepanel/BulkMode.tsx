@@ -10,6 +10,7 @@ type BulkRowStatus = 'waiting' | 'creating' | 'uploading' | 'done' | 'failed';
 export interface BulkRow {
   id: string;
   dataUrl: string;
+  originalFilename: string;
   filename: string;
   summary: string;
   description: string;
@@ -31,12 +32,18 @@ interface BulkModeProps {
 
 const BULK_PROGRESS_KEY = 'jirawm_bulk_progress';
 
+type StartBulkResponse = {
+  ok: boolean;
+  error?: string;
+};
+
 export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, domain, onOpenSettings, rows, setRows }: BulkModeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxPreview, setLightboxPreview] = useState<string | null>(null);
   const [numberBulkFiles, setNumberBulkFiles] = useState(true);
+  const [startError, setStartError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastAppliedWorkflowIdRef = useRef<string>('');
@@ -57,13 +64,13 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
     };
   }
 
-  function assignBulkFilenames(rowsToName: BulkRow[]): BulkRow[] {
+  const assignBulkFilenames = useCallback((rowsToName: BulkRow[]): BulkRow[] => {
     if (!numberBulkFiles) return rowsToName;
     return rowsToName.map((row, index) => {
-      const base = toJpegFilename(row.filename).replace(/\.jpg$/, '');
+      const base = row.originalFilename.replace(/\.jpg$/, '');
       return { ...row, filename: `${index + 1} - ${base}.jpg` };
     });
-  }
+  }, [numberBulkFiles]);
 
   const addFiles = useCallback(async (files: FileList | null) => {
     if (!files) return;
@@ -77,10 +84,12 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
     for (const file of imageFiles) {
       try {
         const { dataUrl } = await normalizeImage(file, imageSettings);
+        const normalizedFilename = toJpegFilename(file.name);
         newRows.push({
           id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           dataUrl,
-          filename: file.name,
+          originalFilename: normalizedFilename,
+          filename: normalizedFilename,
           summary: '',
           description: '',
           assignee: defaultAssignee,
@@ -92,7 +101,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
       }
     }
     setRows((prev) => assignBulkFilenames([...prev, ...newRows]));
-  }, [activeWorkflow?.defaultAssignee, numberBulkFiles]);
+  }, [activeWorkflow?.defaultAssignee, setRows, assignBulkFilenames]);
 
   function removeRow(id: string) {
     setRows((prev) => assignBulkFilenames(prev.filter((r) => r.id !== id)));
@@ -117,7 +126,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
       );
     }
     lastAppliedWorkflowIdRef.current = selectedWorkflowId;
-  }, [selectedWorkflowId, workflows]);
+  }, [selectedWorkflowId, workflows, setRows]);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -155,13 +164,34 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, assignee } : row)));
   }
 
-  function clearAll() {
-    setRows([]);
+  function stopPolling() {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
     setIsProcessing(false);
+  }
+
+  async function signalStartBulk(workflowId: string): Promise<StartBulkResponse> {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'START_BULK', workflowId }, (response?: StartBulkResponse) => {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        if (!response) {
+          resolve({ ok: false, error: 'No response from background worker.' });
+          return;
+        }
+        resolve(response);
+      });
+    });
+  }
+
+  function clearAll() {
+    setRows([]);
+    stopPolling();
+    setStartError(null);
   }
 
   async function buildTasks(rowsToUpload: BulkRow[]): Promise<BulkTask[]> {
@@ -195,11 +225,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
         }),
       );
       if (progress.every((t) => t.status === 'done' || t.status === 'failed')) {
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-        setIsProcessing(false);
+        stopPolling();
       }
     }, 1000);
   }
@@ -207,16 +233,27 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   async function startUpload() {
     if (rows.length === 0 || !selectedWorkflowId) return;
 
+    setStartError(null);
+
     const tasks = (await buildTasks(rows)).map((task) => ({ ...task, workflowId: selectedWorkflowId }));
-    setRows((prev) => prev.map((row) => ({ ...row, status: 'waiting' })));
+    setRows((prev) => prev.map((row) => ({ ...row, status: 'waiting', error: undefined })));
     await setLocal(BULK_PROGRESS_KEY, tasks);
-    chrome.runtime.sendMessage({ type: 'START_BULK', workflowId: selectedWorkflowId });
+
+    const response = await signalStartBulk(selectedWorkflowId);
+    if (!response.ok) {
+      stopPolling();
+      setStartError(response.error || 'Failed to start bulk upload in background worker.');
+      return;
+    }
+
     startPolling();
   }
 
   async function retryFailed() {
     const failedRows = rows.filter((row) => row.status === 'failed');
     if (failedRows.length === 0 || !selectedWorkflowId) return;
+
+    setStartError(null);
 
     const progress = (await getLocal<BulkTask[]>(BULK_PROGRESS_KEY)) ?? [];
     const resetProgress = progress.map((task) =>
@@ -226,9 +263,16 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
     );
     await setLocal(BULK_PROGRESS_KEY, resetProgress);
     setRows((prev) =>
-      prev.map((row) => (row.status === 'failed' ? { ...row, status: 'waiting' } : row)),
+      prev.map((row) => (row.status === 'failed' ? { ...row, status: 'waiting', error: undefined } : row)),
     );
-    chrome.runtime.sendMessage({ type: 'START_BULK', workflowId: selectedWorkflowId });
+
+    const response = await signalStartBulk(selectedWorkflowId);
+    if (!response.ok) {
+      stopPolling();
+      setStartError(response.error || 'Failed to restart bulk upload in background worker.');
+      return;
+    }
+
     startPolling();
   }
 
@@ -240,6 +284,10 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    setStartError(null);
+  }, [selectedWorkflowId]);
 
   function openLightbox(preview: string) {
     setLightboxPreview(preview);
@@ -320,6 +368,19 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
           style={{ display: 'none' }}
         />
       </div>
+
+      {startError && (
+        <div
+          className="rounded px-2 py-1.5 text-xs"
+          style={{
+            border: '1px solid var(--chrome-red)',
+            background: 'var(--chrome-surface)',
+            color: 'var(--chrome-red)',
+          }}
+        >
+          ❌ {startError}
+        </div>
+      )}
 
       {/* Task cards */}
       {rows.length > 0 && (
