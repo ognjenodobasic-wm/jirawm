@@ -87,7 +87,6 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
   const [cropDragging, setCropDragging] = useState(false);
   const [cropMode, setCropMode] = useState(false);
   const cropStartRef = useRef<{ x: number; y: number } | null>(null);
-  const preDragSelectionRef = useRef<CropRect | null>(null);
 
   // Capture details state
   const initialOverridesRef = useRef<MetadataOverrides | null>(normalizeOverrides(metadataOverrides));
@@ -622,20 +621,9 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     return { x, y, width: Math.abs(selection.width), height: Math.abs(selection.height) };
   }
 
-  function seedDefaultCropSelection(): CropRect | null {
-    const bounds = getImageBounds();
-    if (!bounds) return null;
-    const width = Math.round(bounds.width * 0.6);
-    const height = Math.round(bounds.height * 0.6);
-    const x = bounds.x + Math.round((bounds.width - width) / 2);
-    const y = bounds.y + Math.round((bounds.height - height) / 2);
-    return { x, y, width, height };
-  }
-
   function startCropMode() {
-    const nextSelection = seedDefaultCropSelection();
     setCropMode(true);
-    setCropSelection(nextSelection);
+    setCropSelection(null);
     setActiveTool('crop');
   }
 
@@ -730,7 +718,6 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     cropStartRef.current = { x, y };
-    preDragSelectionRef.current = cropSelection ? { ...cropSelection } : null;
     setCropDragging(true);
     setCropSelection({
       x,
@@ -770,19 +757,11 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     cropStartRef.current = null;
 
     setCropSelection((prev) => {
-      if (!prev) {
-        const fallback = preDragSelectionRef.current ?? seedDefaultCropSelection();
-        return fallback;
-      }
+      if (!prev) return null;
       const normalized = normalizeSelection(prev);
-      if (normalized.width < 20 || normalized.height < 20) {
-        const fallback = preDragSelectionRef.current ?? seedDefaultCropSelection();
-        return fallback;
-      }
+      if (normalized.width < 20 || normalized.height < 20) return null;
       return clampSelectionToImage(normalized);
     });
-
-    preDragSelectionRef.current = null;
   }
 
   const toolButton = (tool: Tool, label: string, disabled = false, title?: string) => {
@@ -873,7 +852,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
 
       {cropMode && (
         <div style={{ height: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#fff3cd', borderBottom: '1px solid #e6c200' }}>
-          <span style={{ fontSize: 11, color: '#5c4a00' }}>Drag to select a region</span>
+          <span style={{ fontSize: 11, color: '#5c4a00' }}>Click and drag to draw a crop zone</span>
           <button
             onClick={applyCrop}
             disabled={!cropSelection || cropSelection.width < 20 || cropSelection.height < 20}
