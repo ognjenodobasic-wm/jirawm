@@ -72,6 +72,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
   const [canRedo, setCanRedo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [canvasDirty, setCanvasDirty] = useState(false);
+  const [imageCropped, setImageCropped] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const isClosingIntentionallyRef = useRef(false);
 
@@ -124,7 +125,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
   // canvasDirty  -> annotation objects exist; gates drawing-state affordances (crop, delete)
   // detailsDirty -> Capture Details panel has pending edits
   // hasUnsavedWork -> either kind of unsaved work; gates Save/Cancel and all exit confirms
-  const hasUnsavedWork = canvasDirty || detailsDirty;
+  const hasUnsavedWork = canvasDirty || detailsDirty || imageCropped;
 
   const updateCanvasDirty = useCallback(() => {
     const canvas = canvasInstanceRef.current;
@@ -505,7 +506,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
 
   function buildSavedResult(): SavedResult {
     const canvas = canvasInstanceRef.current;
-    const imageDirty = canvas ? canvas.getObjects().length > 0 : false;
+    const imageDirty = (canvas ? canvas.getObjects().length > 0 : false) || imageCropped;
     const overridesDirty = showPanel && allowEdit
       ? !overridesEqual(workingOverrides, initialOverridesRef.current)
       : false;
@@ -698,6 +699,8 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
       canvas.backgroundImage = fabricImg;
       handleResize();
       canvas.renderAll();
+
+      setImageCropped(true);
 
       historyRef.current = historyRef.current.slice(0, historyCursorRef.current + 1);
       historyRef.current.push(snapshotBefore);
