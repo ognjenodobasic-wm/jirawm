@@ -1,3 +1,6 @@
+<img width="48" height="48" alt="icon48" src="https://github.com/user-attachments/assets/fc36c99e-52cc-43e9-acf3-5cd5088da4a6" />
+
+
 # JiraWM
 
 🇷🇸 Srpski | [🇬🇧 English](README.en.md)
