@@ -122,7 +122,7 @@ Settings is split into three collapsible sections, all of which save automatical
 **Installation:**
 
 1. Download the latest release ZIP from the [Releases page](https://github.com/ognjenodobasic-wm/jirawm/releases)
-2. Unzip it
+2. Unzip it to a permanent location you won't accidentally delete (e.g. a dedicated folder inside Documents, not Downloads or your Desktop) — future versions unpack to the same location, so this folder needs to stay in place
 3. Open `chrome://extensions/` in Chrome
 4. Enable **Developer mode** (toggle in the top right)
 5. Click **Load unpacked** and select the unzipped folder
