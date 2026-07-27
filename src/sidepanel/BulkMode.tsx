@@ -469,7 +469,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
               </div>
 
               <div>
-                <label style={labelStyle}>Summary *</label>
+                <label style={labelStyle}>Summary <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
                 <input
                   type="text"
                   value={row.summary}
@@ -537,6 +537,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
             bottom: 0,
             background: 'var(--chrome-bg)',
             paddingTop: '8px',
+            paddingBottom: '6px',
             borderTop: '1px solid var(--chrome-border)',
             zIndex: 10,
           }}
