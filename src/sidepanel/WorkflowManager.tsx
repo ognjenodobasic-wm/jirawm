@@ -366,7 +366,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
 
       {/* Workflow name */}
       <div className="flex flex-col gap-1">
-        <label style={labelStyle}>Workflow name *</label>
+        <label style={labelStyle}>Workflow name <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
         <input
           type="text"
           value={name}
@@ -378,7 +378,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
 
       {/* Step 1 — Project */}
       <div className="flex flex-col gap-1">
-        <label style={labelStyle}>Project *</label>
+        <label style={labelStyle}>Project <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
         {projectsState.status === 'loading' && (
           <p className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
             Loading projects…
@@ -524,7 +524,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
       {/* Step 3 — Issue type */}
       {projectKey && (
         <div className="flex flex-col gap-1">
-          <label style={labelStyle}>Issue type *</label>
+          <label style={labelStyle}>Issue type <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
           {issueTypesState.status === 'loading' && (
             <p className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
               Loading issue types…
