@@ -46,15 +46,18 @@
 - Bulk Upload start/retry now handles async worker response. If worker rejects `START_BULK`,
   UI stops processing state, cancels polling, and shows an explicit error instead of hanging.
 
-## 3.1.1 — Crop tool improvements
+## 3.1.1 — Crop tool and annotation editor fixes
 
 ### Fixed
 - Crop toolbar button now correctly enters crop mode.
 - Crop dim overlay now darkens the area outside the selection instead of the selection itself.
 - Crop Apply no longer produces a blank canvas.
+- Save no longer shows a false "unsaved changes" confirmation prompt when saving intentionally.
+- Marker labels now use the correct system sans-serif font instead of a serif fallback.
+- Crop confirmation bar now has a light yellow background to signal crop mode is active.
 
 ### Changed
-- Crop mode now opens with a default centered selection (60% of the image).
+- Crop mode now opens empty — the user draws their own selection zone instead of starting from a pre-filled default.
 - Selection can be moved by dragging its body.
 - Selection can be resized by dragging any of the eight handles.
 - Dragging outside the selection starts a new selection.
