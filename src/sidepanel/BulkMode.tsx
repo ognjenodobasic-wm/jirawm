@@ -44,6 +44,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   const [lightboxPreview, setLightboxPreview] = useState<string | null>(null);
   const [numberBulkFiles, setNumberBulkFiles] = useState(true);
   const [startError, setStartError] = useState<string | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastAppliedWorkflowIdRef = useRef<string>('');
@@ -194,6 +195,15 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
     setStartError(null);
   }
 
+  function handleClearAllClick() {
+    if (hasUnuploadedWork && !confirmClearAll) {
+      setConfirmClearAll(true);
+      return;
+    }
+    clearAll();
+    setConfirmClearAll(false);
+  }
+
   async function buildTasks(rowsToUpload: BulkRow[]): Promise<BulkTask[]> {
     return rowsToUpload.map((row) => ({
       id: row.id,
@@ -232,6 +242,10 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
 
   async function startUpload() {
     if (rows.length === 0 || !selectedWorkflowId) return;
+    if (hasEmptySummary) {
+      setStartError('Every row needs a summary before you can start the upload.');
+      return;
+    }
 
     setStartError(null);
 
@@ -278,6 +292,8 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
 
   const hasFailedRows = rows.some((row) => row.status === 'failed');
   const hasActiveRows = rows.some((row) => row.status === 'creating' || row.status === 'uploading');
+  const hasUnuploadedWork = rows.some((row) => row.status !== 'done');
+  const hasEmptySummary = rows.some((row) => !row.summary.trim());
 
   useEffect(() => {
     return () => {
@@ -526,53 +542,61 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
       {/* Bottom bar */}
       {rows.length > 0 && (
         <div className="flex flex-col gap-2 shrink-0">
-          <button
-            type="button"
-            disabled={rows.length === 0 || isProcessing}
-            onClick={startUpload}
-            className="w-full rounded py-1.5 px-3 text-xs font-medium"
-            style={{
-              border: 'none',
-              background: 'var(--chrome-blue)',
-              color: '#fff',
-              cursor: rows.length === 0 || isProcessing ? 'not-allowed' : 'pointer',
-              opacity: rows.length === 0 || isProcessing ? 0.6 : 1,
-            }}
-          >
-            Start Upload
-          </button>
           <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={rows.length === 0 || isProcessing}
-              onClick={clearAll}
-              className="flex-1 rounded py-1.5 px-3 text-xs font-medium"
+              onClick={handleClearAllClick}
               style={{
+                flex: 2,
                 border: '1px solid var(--chrome-border)',
                 background: 'var(--chrome-bg)',
                 color: 'var(--chrome-text-secondary)',
                 cursor: rows.length === 0 || isProcessing ? 'not-allowed' : 'pointer',
                 opacity: rows.length === 0 || isProcessing ? 0.6 : 1,
+                borderRadius: 4,
+                padding: '6px 8px',
+                fontSize: '12px',
+                fontWeight: 500,
               }}
             >
-              Clear All
+              {confirmClearAll ? 'Confirm?' : 'Clear All'}
             </button>
-            {hasFailedRows && !hasActiveRows && (
-              <button
-                type="button"
-                onClick={retryFailed}
-                className="flex-1 rounded py-1.5 px-3 text-xs font-medium"
-                style={{
-                  border: '1px solid var(--chrome-red)',
-                  background: 'var(--chrome-bg)',
-                  color: 'var(--chrome-red)',
-                  cursor: 'pointer',
-                }}
-              >
-                Retry Failed
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={rows.length === 0 || isProcessing || hasEmptySummary}
+              onClick={startUpload}
+              style={{
+                flex: 8,
+                border: 'none',
+                background: 'var(--chrome-green)',
+                color: '#fff',
+                cursor: rows.length === 0 || isProcessing || hasEmptySummary ? 'not-allowed' : 'pointer',
+                opacity: rows.length === 0 || isProcessing || hasEmptySummary ? 0.6 : 1,
+                borderRadius: 4,
+                padding: '6px 8px',
+                fontSize: '12px',
+                fontWeight: 500,
+              }}
+            >
+              Start Upload
+            </button>
           </div>
+          {hasFailedRows && !hasActiveRows && (
+            <button
+              type="button"
+              onClick={retryFailed}
+              className="w-full rounded py-1.5 px-3 text-xs font-medium"
+              style={{
+                border: '1px solid var(--chrome-red)',
+                background: 'var(--chrome-bg)',
+                color: 'var(--chrome-red)',
+                cursor: 'pointer',
+              }}
+            >
+              Retry Failed
+            </button>
+          )}
         </div>
       )}
 
