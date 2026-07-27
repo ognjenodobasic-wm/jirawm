@@ -32,13 +32,13 @@ export default function WorkflowsSection() {
       <Step
         number={3}
         title="Set a parent task (optional)"
-        text="Search by key or summary. Any task in the project can be a parent. Leave blank to create top-level issues."
+        text="Search by key or summary. Leave blank to create top-level issues. Sub-tasks cannot be selected as a parent — Jira does not allow a sub-task of a sub-task, so these are filtered out of search results automatically."
       />
 
       <Step
         number={4}
         title="Required fields"
-        text="Set default values for any field the project requires (sprint, priority, component, labels, etc.). These values are applied silently — you do not see them in the form."
+        text="Set default values for any field the project requires (sprint, priority, component, labels, etc.). Fields with a predefined set of Jira values show a dropdown; free-text fields show a text input. These values are applied silently — you do not see them in the form."
       />
 
       <Step

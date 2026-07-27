@@ -35,8 +35,8 @@ export default function BulkUploadSection() {
           { icon: '⏸️', text: 'Waiting to start' },
           { icon: '⏳', text: 'Creating issue in Jira' },
           { icon: '⏳', text: 'Uploading screenshot' },
-          { icon: '✅', text: 'Done — task key shown as a link' },
-          { icon: '❌', text: 'Failed — retry button appears' },
+          { icon: '✅', text: 'Success — task key shown as a green link' },
+          { icon: '❌', text: 'Error — reason shown in red, retry button appears' },
         ].map((row, idx) => (
           <div
             key={idx}
@@ -63,6 +63,26 @@ export default function BulkUploadSection() {
         <Text>
           If some tasks fail, use "Retry failed" to reprocess only those rows — not the ones that
           already succeeded. Progress is saved even if you close the panel.
+        </Text>
+      </Card>
+
+      <Card>
+        <h3 style={cardHeadingStyle}>While an upload is running</h3>
+        <Text>
+          A scanning progress indicator animates across the top of the panel so you can tell an
+          upload is active even if you have scrolled down. Start Upload shows a spinner and
+          disables itself to prevent double-clicks. Clicking Start Upload again on the same batch
+          only processes rows that have not yet succeeded — already-completed rows are skipped.
+        </Text>
+      </Card>
+
+      <Card>
+        <h3 style={cardHeadingStyle}>Clearing the list</h3>
+        <Text>
+          The Clear All and Start Upload buttons stay pinned to the bottom of the panel. Clear All
+          asks for confirmation if any rows have not finished successfully. Successfully completed
+          rows are removed automatically the next time you add new screenshots, keeping the list
+          focused on what is still in progress.
         </Text>
       </Card>
 
