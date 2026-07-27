@@ -1,5 +1,33 @@
 # JiraWM — Changelog
 
+## 3.2.0 — Bulk upload UX overhaul, workflow safeguards, and visual polish
+
+### Added
+- Workflow setup now prevents selecting a sub-task issue as a parent (Jira does not allow subtasks of subtasks).
+- Required/optional workflow fields with predefined Jira values now show a dropdown instead of a free-text input.
+- Bulk upload: Success (green) / Error (red) status labels with clearer wording.
+- Bulk upload: animated scanning progress indicator in the header while an upload is running, visible regardless of scroll position.
+- Bulk upload: spinner and "Uploading…" label on Start Upload while processing.
+- Bulk upload: sticky footer (Clear All / Start Upload) pinned to the bottom of the panel.
+- Bulk upload: "Clear All" now asks for confirmation if there are unfinished (non-success) rows.
+- Bulk upload: completed rows are automatically removed from the list once new screenshots are added.
+- Save Workflow now shows a spinner and is disabled while saving, preventing duplicate submissions.
+- Create Task button shows a spinner while submitting.
+- Hover background styling added to native select dropdown options.
+- Serbian translation of the README is now the primary README; the original English version is preserved as README.en.md.
+
+### Fixed
+- Jira API error responses are now parsed into readable messages instead of showing raw JSON.
+- Arrow tool (and any default tool) no longer fails to respond on initial annotation editor load — fixed a canvas-readiness race condition.
+- Bulk upload no longer allows submitting rows with an empty required Summary field.
+- Bulk upload no longer re-uploads already-successful rows when Start Upload is clicked again on the same batch.
+- Fixed a double-click race on Start Upload where the processing state wasn't set immediately.
+
+### Changed
+- Create Task and Save Workflow buttons are now green (previously blue) to visually distinguish the primary continue action.
+- Workflow breadcrumb in Single Task now uses → separators instead of middle dots.
+- Removed the stale keyboard-shortcuts column from the annotation editor tools table in both README files (those shortcuts no longer exist).
+
 ## 3.1.2 — Bulk retry attachment-only fix + bulk filename numbering fix + editor handoff race fix
 
 ### Fixed
