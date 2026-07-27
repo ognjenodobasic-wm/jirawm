@@ -29,6 +29,10 @@ function getHeaders(): HeadersInit {
   };
 }
 
+function baseUrl(): string {
+  return `https://${requireAuth().domain}.atlassian.net/rest/api/3`;
+}
+
 function formatJiraErrorBody(body: string): string {
   try {
     const parsed = JSON.parse(body);
@@ -124,15 +128,15 @@ export async function searchIssues(
   query: string,
   projectId: string,
   projectKey: string,
-): Promise<Array<{ key: string; summary: string }>> {
+): Promise<Array<{ key: string; summary: string; isSubtask: boolean }>> {
   const trimmed = query.trim();
-  const results: Array<{ key: string; summary: string }> = [];
+  const results: Array<{ key: string; summary: string; isSubtask: boolean }> = [];
   const seen = new Set<string>();
 
-  function addResult(key: string, summary: string) {
+  function addResult(key: string, summary: string, isSubtask = false) {
     if (!seen.has(key)) {
       seen.add(key);
-      results.push({ key, summary });
+      results.push({ key, summary, isSubtask });
     }
   }
 
@@ -140,9 +144,9 @@ export async function searchIssues(
   if (/^[A-Za-z]+-\d+$/.test(trimmed)) {
     try {
       const issue = (await apiFetch(
-        `/issue/${trimmed.toUpperCase()}?fields=summary`,
-      )) as { key: string; fields: { summary: string } };
-      addResult(issue.key, issue.fields.summary);
+        `/issue/${trimmed.toUpperCase()}?fields=summary,issuetype`,
+      )) as { key: string; fields: { summary: string; issuetype: { subtask: boolean } } };
+      addResult(issue.key, issue.fields.summary, issue.fields.issuetype.subtask);
     } catch (err) {
       console.warn('Direct key lookup failed:', err);
     }
@@ -159,7 +163,7 @@ export async function searchIssues(
     };
     for (const section of pickerData.sections ?? []) {
       for (const issue of section.issues ?? []) {
-        addResult(issue.key, issue.summaryText ?? issue.summary ?? '');
+        addResult(issue.key, issue.summaryText ?? issue.summary ?? '', false);
       }
     }
   } catch (err) {
@@ -175,11 +179,13 @@ export async function searchIssues(
         body: JSON.stringify({
           jql: `project = "${projectKey}" AND summary ~ "${escaped}*" ORDER BY updated DESC`,
           maxResults: 50,
-          fields: ['summary'],
+          fields: ['summary', 'issuetype'],
         }),
-      })) as { issues: Array<{ key: string; fields: { summary: string } }> };
+      })) as {
+        issues: Array<{ key: string; fields: { summary: string; issuetype: { subtask: boolean } } }>;
+      };
       for (const issue of jqlData.issues ?? []) {
-        addResult(issue.key, issue.fields.summary);
+        addResult(issue.key, issue.fields.summary, issue.fields.issuetype.subtask);
       }
     } catch (err) {
       console.warn('JQL search failed:', err);
