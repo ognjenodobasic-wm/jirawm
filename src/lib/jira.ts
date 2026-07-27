@@ -29,8 +29,22 @@ function getHeaders(): HeadersInit {
   };
 }
 
-function baseUrl(): string {
-  return `https://${requireAuth().domain}.atlassian.net/rest/api/3`;
+function formatJiraErrorBody(body: string): string {
+  try {
+    const parsed = JSON.parse(body);
+    const parts: string[] = [];
+    if (Array.isArray(parsed.errorMessages) && parsed.errorMessages.length > 0) {
+      parts.push(parsed.errorMessages.join('; '));
+    }
+    if (parsed.errors && typeof parsed.errors === 'object') {
+      const errorLines = Object.entries(parsed.errors).map(([k, v]) => `${k}: ${v}`);
+      if (errorLines.length > 0) parts.push(errorLines.join('\n'));
+    }
+    if (parts.length > 0) return parts.join('\n');
+    return body;
+  } catch {
+    return body;
+  }
 }
 
 async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
@@ -40,7 +54,7 @@ async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`Jira ${res.status} ${res.statusText}: ${body}`);
+    throw new Error(`Jira ${res.status} ${res.statusText}: ${formatJiraErrorBody(body)}`);
   }
   return res.status === 204 ? null : res.json();
 }
