@@ -65,6 +65,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
   const scaleRef = useRef<number>(1);
 
   const [activeTool, setActiveTool] = useState<Tool>('arrow');
+  const [canvasReady, setCanvasReady] = useState(false);
   const [activeColor, setActiveColor] = useState('#ff4444');
   const [strokeWidth, setStrokeWidth] = useState<2 | 3 | 4>(2);
   const [markerCounter, setMarkerCounter] = useState(1);
@@ -283,6 +284,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
       fabricCanvas.on('object:modified', () => saveHistory());
       fabricCanvas.on('object:added', () => { resetMarkerCounter(); updateCanvasDirty(); });
       fabricCanvas.on('object:removed', () => { resetMarkerCounter(); updateCanvasDirty(); });
+      setCanvasReady(true);
     };
     img.src = dataUrl;
 
@@ -292,6 +294,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
       window.removeEventListener('resize', handleResize);
       canvasInstanceRef.current?.dispose();
       canvasInstanceRef.current = null;
+      setCanvasReady(false);
     };
   }, [dataUrl, saveHistory, resetMarkerCounter, updateCanvasDirty, handleResize, showPanel]);
 
@@ -465,7 +468,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
       canvas.off('mouse:up', handleMouseUp);
       canvas.off('mouse:down', handleMouseDownForTextAndMarker);
     };
-  }, [activeTool, activeColor, strokeWidth, markerCounter, saveHistory, cropMode]);
+  }, [activeTool, activeColor, strokeWidth, markerCounter, saveHistory, cropMode, canvasReady]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
