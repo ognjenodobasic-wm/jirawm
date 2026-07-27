@@ -462,7 +462,12 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
             opacity: isLoading || !!resultKey ? 0.6 : 1,
           }}
         >
-          {isLoading ? 'Creating…' : activeWorkflow ? `Create ${activeWorkflow.issueType}` : 'Create Task'}
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+              Creating…
+            </span>
+          ) : activeWorkflow ? `Create ${activeWorkflow.issueType}` : 'Create Task'}
         </button>
 
         {history.length > 0 && (
