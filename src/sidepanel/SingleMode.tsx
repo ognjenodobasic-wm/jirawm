@@ -326,8 +326,8 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
       {activeWorkflow && (
         <div className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
           {activeWorkflow.hasParent && activeWorkflow.parentKey
-            ? `${activeWorkflow.projectKey} · under ${activeWorkflow.parentKey} · ${activeWorkflow.issueType}`
-            : `${activeWorkflow.projectKey} · ${activeWorkflow.issueType}`}
+            ? `${activeWorkflow.projectKey} → under ${activeWorkflow.parentKey} → ${activeWorkflow.issueType}`
+            : `${activeWorkflow.projectKey} → ${activeWorkflow.issueType}`}
         </div>
       )}
 
