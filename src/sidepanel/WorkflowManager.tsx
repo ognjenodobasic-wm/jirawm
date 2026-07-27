@@ -29,7 +29,7 @@ type IssueTypesState =
 type ParentSearchState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'ready'; issues: Array<{ key: string; summary: string }> }
+  | { status: 'ready'; issues: Array<{ key: string; summary: string; isSubtask: boolean }> }
   | { status: 'error'; message: string };
 
 // Fields handled by the app or by Jira itself — never shown as user-set defaults.
@@ -236,7 +236,8 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
     setParentSearchState({ status: 'idle' });
   }
 
-  function selectParent(key: string, summary: string) {
+  function selectParent(key: string, summary: string, isSubtask: boolean) {
+    if (isSubtask) return;
     setParentKey(key);
     setSelectedParentSummary(summary);
     setParentQuery('');
@@ -487,17 +488,24 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
                           <button
                             key={issue.key}
                             type="button"
-                            onClick={() => selectParent(issue.key, issue.summary)}
+                            disabled={issue.isSubtask}
+                            onClick={() => selectParent(issue.key, issue.summary, issue.isSubtask)}
                             className="text-left px-2 py-1.5 text-xs"
                             style={{
                               background: 'none',
                               border: 'none',
                               borderBottom: '1px solid var(--chrome-border)',
-                              cursor: 'pointer',
+                              cursor: issue.isSubtask ? 'not-allowed' : 'pointer',
                               color: 'var(--chrome-text-primary)',
+                              opacity: issue.isSubtask ? 0.5 : 1,
                             }}
                           >
                             {issue.key} — {issue.summary}
+                            {issue.isSubtask && (
+                              <span style={{ color: 'var(--chrome-text-secondary)' }}>
+                                {' '}— sub-task, can't be used as parent
+                              </span>
+                            )}
                           </button>
                         ))
                       )}
