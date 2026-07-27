@@ -369,6 +369,28 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
         />
       </div>
 
+      {isProcessing && (
+        <div style={{ position: 'relative', height: 2, overflow: 'hidden', borderRadius: 2, background: 'var(--chrome-border)' }}>
+          <style>{`
+            @keyframes bulkScan {
+              0% { left: -30%; }
+              100% { left: 100%; }
+            }
+          `}</style>
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: '-30%',
+              width: '30%',
+              height: '100%',
+              background: 'var(--chrome-blue)',
+              animation: 'bulkScan 1.2s linear infinite',
+            }}
+          />
+        </div>
+      )}
+
       {startError && (
         <div
           className="rounded px-2 py-1.5 text-xs"
@@ -480,17 +502,20 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
                 {row.status === 'creating' && '⏳ Creating…'}
                 {row.status === 'uploading' && '📤 Uploading…'}
                 {row.status === 'done' && row.issueKey && (
-                  <a
-                    href={`https://${domain}.atlassian.net/browse/${row.issueKey}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ color: 'var(--chrome-blue)', textDecoration: 'underline' }}
-                  >
-                    {row.issueKey}
-                  </a>
+                  <span style={{ color: 'var(--chrome-green)' }}>
+                    ✅ Success —{' '}
+                    <a
+                      href={`https://${domain}.atlassian.net/browse/${row.issueKey}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: 'var(--chrome-green)', textDecoration: 'underline', fontWeight: 600 }}
+                    >
+                      {row.issueKey}
+                    </a>
+                  </span>
                 )}
                 {row.status === 'failed' && (
-                  <span style={{ color: 'var(--chrome-red)' }}>❌ {row.error || 'Failed'}</span>
+                  <span style={{ color: 'var(--chrome-red)' }}>❌ Error: {row.error || 'Failed'}</span>
                 )}
               </div>
             </div>
