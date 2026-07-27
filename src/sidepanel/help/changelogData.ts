@@ -7,6 +7,26 @@ export type ChangelogRelease = {
 
 export const CHANGELOG_DATA: ChangelogRelease[] = [
   {
+    version: '3.2.0',
+    date: 'Juli 2026',
+    items: [
+      'Workflow setup now blocks selecting a sub-task as a parent — Jira does not allow subtasks of subtasks',
+      'Required and optional workflow fields with predefined Jira values now show a dropdown instead of free text',
+      'Bulk upload shows clear green Success / red Error status labels',
+      'Bulk upload header shows an animated progress indicator while an upload is running',
+      'Start Upload shows a spinner and "Uploading…" while processing, and can no longer be double-clicked',
+      'Bulk upload footer (Clear All / Start Upload) stays pinned to the bottom of the panel',
+      'Clear All now asks for confirmation if any rows have not finished successfully',
+      'Completed rows are automatically cleared from the list once new screenshots are added',
+      'Save Workflow shows a spinner and is disabled while saving, preventing duplicate submissions',
+      'Create Task shows a spinner while submitting',
+      'Native select dropdowns now highlight the option under the cursor on hover',
+      'Jira API errors now show a readable message instead of raw JSON',
+      'Create Task and Save Workflow buttons are now green to stand out as the primary action',
+      'Workflow breadcrumb now uses → separators',
+    ],
+  },
+  {
     version: '3.1.2',
     date: 'Juli 2026',
     items: [
@@ -14,6 +34,19 @@ export const CHANGELOG_DATA: ChangelogRelease[] = [
       'Bulk upload filename numbering no longer accumulates prefixes when adding or removing rows',
       'Annotation editor handoff is now race-safe: Side Panel owns annotationResult cleanup after applying/safely discarding the result',
       'Bulk upload start/retry now handles worker start errors and avoids stuck processing state by stopping polling and showing a clear error',
+    ],
+  },
+  {
+    version: '3.1.1',
+    date: 'Juli 2026',
+    items: [
+      'Crop tool toolbar button now reliably enters crop mode',
+      'Crop overlay now darkens the area outside the selection, not the selection itself',
+      'Crop Apply no longer produces a blank canvas',
+      'Crop mode opens empty — draw your own selection zone instead of starting from a pre-filled default',
+      'Selection can be moved and resized by dragging its body or handles',
+      'Save no longer shows a false "unsaved changes" prompt when you save intentionally',
+      'Marker labels now use the correct system font',
     ],
   },
   {
