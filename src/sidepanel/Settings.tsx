@@ -188,11 +188,9 @@ export default function Settings({ onBack }: SettingsProps) {
                 rel="noreferrer"
                 className="text-xs"
                 style={{
-                  color: 'var(--chrome-text-secondary)',
-                  textDecoration: 'none',
+                  color: 'var(--chrome-blue)',
+                  textDecoration: 'underline',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
               >
                 Generate token
               </a>
