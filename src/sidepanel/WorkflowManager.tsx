@@ -571,15 +571,30 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
           {requiredFields.map((f) => (
             <div key={f.id} className="flex flex-col gap-1">
               <label style={labelStyle}>{f.name}</label>
-              <input
-                type="text"
-                value={requiredDefaults[f.id] ?? ''}
-                onChange={(e) =>
-                  setRequiredDefaults((prev) => ({ ...prev, [f.id]: e.target.value }))
-                }
-                placeholder={`Default ${f.name.toLowerCase()}`}
-                style={inputStyle}
-              />
+              {f.allowedValues && f.allowedValues.length > 0 ? (
+                <select
+                  value={requiredDefaults[f.id] ?? ''}
+                  onChange={(e) =>
+                    setRequiredDefaults((prev) => ({ ...prev, [f.id]: e.target.value }))
+                  }
+                  style={inputStyle}
+                >
+                  <option value="">Select {f.name.toLowerCase()}…</option>
+                  {f.allowedValues.map((v) => (
+                    <option key={v.id} value={v.value}>{v.name ?? v.value}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={requiredDefaults[f.id] ?? ''}
+                  onChange={(e) =>
+                    setRequiredDefaults((prev) => ({ ...prev, [f.id]: e.target.value }))
+                  }
+                  placeholder={`Default ${f.name.toLowerCase()}`}
+                  style={inputStyle}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -602,15 +617,30 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
                   </span>
                 </label>
                 {checked && (
-                  <input
-                    type="text"
-                    value={optionalDefaults[f.id] ?? ''}
-                    onChange={(e) =>
-                      setOptionalDefaults((prev) => ({ ...prev, [f.id]: e.target.value }))
-                    }
-                    placeholder={`Default ${f.name.toLowerCase()}`}
-                    style={inputStyle}
-                  />
+                  f.allowedValues && f.allowedValues.length > 0 ? (
+                    <select
+                      value={optionalDefaults[f.id] ?? ''}
+                      onChange={(e) =>
+                        setOptionalDefaults((prev) => ({ ...prev, [f.id]: e.target.value }))
+                      }
+                      style={inputStyle}
+                    >
+                      <option value="">Select {f.name.toLowerCase()}…</option>
+                      {f.allowedValues.map((v) => (
+                        <option key={v.id} value={v.value}>{v.name ?? v.value}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={optionalDefaults[f.id] ?? ''}
+                      onChange={(e) =>
+                        setOptionalDefaults((prev) => ({ ...prev, [f.id]: e.target.value }))
+                      }
+                      placeholder={`Default ${f.name.toLowerCase()}`}
+                      style={inputStyle}
+                    />
+                  )
                 )}
               </div>
             );
