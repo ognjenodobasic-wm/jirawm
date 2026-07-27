@@ -661,7 +661,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
           disabled={!canSave}
           className="py-1.5 text-xs font-medium rounded"
           style={{
-            background: 'var(--chrome-blue)',
+            background: 'var(--chrome-green)',
             color: '#fff',
             border: 'none',
             cursor: canSave ? 'pointer' : 'not-allowed',
