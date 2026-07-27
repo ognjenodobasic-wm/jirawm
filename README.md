@@ -134,7 +134,7 @@ Settings je podeljen u tri sekcije koje se sklapaju/rasklapaju, sve se čuva aut
 **Instalacija:**
 
 1. Preuzmi najnoviji release ZIP sa [Releases stranice](https://github.com/ognjenodobasic-wm/jirawm/releases)
-2. Otpakuj ga
+2. Otpakuj ga na stalnu lokaciju koju nećeš slučajno obrisati (npr. poseban folder unutar Documents, ne Downloads ili Desktop) — naredne verzije se raspakuju na isto mesto, pa ovaj folder treba da ostane netaknut
 3. Otvori `chrome://extensions/` u Chrome-u
 4. Uključi **Developer mode** (prekidač gore desno)
 5. Klikni **Load unpacked** i izaberi otpakovan folder
