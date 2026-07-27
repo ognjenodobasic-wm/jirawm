@@ -10,6 +10,8 @@ Open the side panel, capture or drop a screenshot, type a title, hit Create. The
 
 Filing a bug or a UX note in Jira takes longer than it should. You take a screenshot, switch tabs, find the right project, find the right epic, pick the issue type, set the sprint and priority, attach the file, write the title. By the time you're done you've broken your focus and half-forgotten what you wanted to say.
 
+<img width="800" height="484" alt="jirawm-singletask" src="https://github.com/user-attachments/assets/d9d03f9a-fb58-45f5-bfcb-cfedc3b0c011" />
+
 JiraWM collapses all of that to: **capture → title → submit**. Everything else — project, issue type, parent epic, sprint, priority, assignee — lives in a workflow preset that gets applied automatically.
 
 ---
