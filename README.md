@@ -10,7 +10,6 @@ Open the side panel, capture or drop a screenshot, type a title, hit Create. The
 
 Filing a bug or a UX note in Jira takes longer than it should. You take a screenshot, switch tabs, find the right project, find the right epic, pick the issue type, set the sprint and priority, attach the file, write the title. By the time you're done you've broken your focus and half-forgotten what you wanted to say.
 
-<img width="800" height="484" alt="jirawm-singletask" src="https://github.com/user-attachments/assets/d9d03f9a-fb58-45f5-bfcb-cfedc3b0c011" />
 
 JiraWM collapses all of that to: **capture → title → submit**. Everything else — project, issue type, parent epic, sprint, priority, assignee — lives in a workflow preset that gets applied automatically.
 
@@ -50,6 +49,8 @@ Switch between workflows in one click. A good rule of thumb: one workflow per co
 
 The everyday mode. You're on a page, you spot something worth filing — a bug, a UX issue, something to follow up on.
 
+<img width="1100" height="1242" alt="singletask" src="https://github.com/user-attachments/assets/0275f1f1-f57a-44f6-b2b6-cd384d7cee4e" />
+
 1. Open the side panel (click the extension icon or `Ctrl+Shift+S`)
 2. Select a workflow from the dropdown
 3. Click **Capture** to screenshot the current tab — or **Add** to upload an existing file
@@ -68,6 +69,8 @@ Need to attach multiple screenshots to one task — a few states of the same bug
 ## Bulk upload
 
 You've come out of a review session, a usability test, or a QA pass with a folder full of screenshots. Bulk Upload turns all of them into Jira tasks without you sitting there clicking through each one.
+
+<img width="1106" height="1642" alt="CleanShot 2026-07-27 at 20 00 06@2x" src="https://github.com/user-attachments/assets/baae1b83-c2b4-441b-bc66-fdb19ed21635" />
 
 1. Switch to the **Bulk Upload** tab
 2. Select a workflow — it applies to every row
