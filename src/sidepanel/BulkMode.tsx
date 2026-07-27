@@ -28,6 +28,7 @@ interface BulkModeProps {
   onOpenSettings: () => void;
   rows: BulkRow[];
   setRows: React.Dispatch<React.SetStateAction<BulkRow[]>>;
+  onProcessingChange?: (isProcessing: boolean) => void;
 }
 
 const BULK_PROGRESS_KEY = 'jirawm_bulk_progress';
@@ -37,7 +38,7 @@ type StartBulkResponse = {
   error?: string;
 };
 
-export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, domain, onOpenSettings, rows, setRows }: BulkModeProps) {
+export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, domain, onOpenSettings, rows, setRows, onProcessingChange }: BulkModeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -311,6 +312,10 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
     setStartError(null);
   }, [selectedWorkflowId]);
 
+  useEffect(() => {
+    onProcessingChange?.(isProcessing);
+  }, [isProcessing, onProcessingChange]);
+
   function openLightbox(preview: string) {
     setLightboxPreview(preview);
     setLightboxOpen(true);
@@ -390,28 +395,6 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
           style={{ display: 'none' }}
         />
       </div>
-
-      {isProcessing && (
-        <div style={{ position: 'relative', height: 2, overflow: 'hidden', borderRadius: 2, background: 'var(--chrome-border)' }}>
-          <style>{`
-            @keyframes bulkScan {
-              0% { left: -30%; }
-              100% { left: 100%; }
-            }
-          `}</style>
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: '-30%',
-              width: '30%',
-              height: '100%',
-              background: 'var(--chrome-blue)',
-              animation: 'bulkScan 1.2s linear infinite',
-            }}
-          />
-        </div>
-      )}
 
       {startError && (
         <div
@@ -547,7 +530,17 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
 
       {/* Bottom bar */}
       {rows.length > 0 && (
-        <div className="flex flex-col gap-2 shrink-0">
+        <div
+          className="flex flex-col gap-2 shrink-0"
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            background: 'var(--chrome-bg)',
+            paddingTop: '8px',
+            borderTop: '1px solid var(--chrome-border)',
+            zIndex: 10,
+          }}
+        >
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -585,7 +578,12 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
                 fontWeight: 500,
               }}
             >
-              Start Upload
+              {isProcessing ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                  Uploading…
+                </span>
+              ) : 'Start Upload'}
             </button>
           </div>
           {hasFailedRows && !hasActiveRows && (
