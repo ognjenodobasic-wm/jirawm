@@ -439,7 +439,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
               className="w-full rounded py-1 px-2 text-xs font-medium"
               style={{
                 border: 'none',
-                background: 'var(--chrome-blue)',
+            background: 'var(--chrome-green)',
                 color: '#fff',
                 cursor: isLoading ? 'not-allowed' : 'pointer',
                 opacity: isLoading ? 0.6 : 1,
