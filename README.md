@@ -12,7 +12,7 @@ Otvori side panel, snimi ili prevuci screenshot, upiši naslov, klikni Create. I
 
 Prijavljivanje buga ili UX napomene u Jiri traje duže nego što bi trebalo. Snimiš screenshot, prebaciš se na drugi tab, tražiš pravi projekat, tražiš pravi epic, biraš tip issue-a, podešavaš sprint i prioritet, kačiš fajl, pišeš naslov. Dok završiš, izgubio si fokus i napola zaboravio šta si hteo da kažeš.
 
-<img width="800" height="484" alt="jirawm-singletask" src="https://github.com/user-attachments/assets/f584f88e-81ab-49fe-bd9a-d73fb0fed78b" />
+<center><img width="800" height="484" alt="jirawm-singletask" src="https://github.com/user-attachments/assets/f584f88e-81ab-49fe-bd9a-d73fb0fed78b" /></center>
 
 JiraWM sve to svodi na: **snimi → naslovi → pošalji**. Sve ostalo — projekat, tip issue-a, parent epic, sprint, prioritet, assignee — živi u workflow preset-u koji se primenjuje automatski.
 
@@ -52,7 +52,7 @@ Prebacuješ se između workflow-ova jednim klikom. Dobro pravilo: jedan workflow
 
 Svakodnevni mod. Na stranici si, primetiš nešto vredno prijave — bug, UX problem, nešto za follow-up.
 
-<img width="50%" height="auto" alt="singletask" src="https://github.com/user-attachments/assets/0275f1f1-f57a-44f6-b2b6-cd384d7cee4e" />
+<center><img width="50%" height="auto" alt="singletask" src="https://github.com/user-attachments/assets/0275f1f1-f57a-44f6-b2b6-cd384d7cee4e" /></center>
 
 1. Otvori side panel (klik na ikonicu ekstenzije ili `Ctrl+Shift+S`)
 2. Izaberi workflow iz dropdown-a
@@ -73,7 +73,7 @@ Treba da zakačiš više screenshot-ova za jedan task — npr. par stanja istog 
 
 Izašao si iz review sesije, usability testa, ili QA prolaska sa folderom punim screenshot-ova. Bulk Upload sve to pretvara u Jira taskove bez da sediš i klikćeš kroz svaki pojedinačno.
 
-<img width="50%" height="auto" alt="bulkupload" src="https://github.com/user-attachments/assets/67065d40-263e-40fe-a111-e147829241f3" />
+<center><img width="50%" height="auto" alt="bulkupload" src="https://github.com/user-attachments/assets/67065d40-263e-40fe-a111-e147829241f3" /></center>
 
 1. Prebaci se na tab **Bulk Upload**
 2. Izaberi workflow — primenjuje se na svaki red
@@ -92,6 +92,8 @@ Progres se čuva u storage-u, tako da zatvaranje i ponovno otvaranje panela poka
 ## Editor za anotacije
 
 Klik na bilo koji thumbnail otvara ga u plutajućem prozoru editora koji pamti svoju veličinu i poziciju između sesija. Možeš samo da pogledaš, anotiraš, ili zatvoriš bez izmena — original ostaje netaknut dok ne klikneš Done.
+
+<img width="2160" height="176" alt="toolbar" src="https://github.com/user-attachments/assets/b152ddea-cefd-4320-9517-c04f8e1c867f" />
 
 **Alati:**
 
@@ -112,6 +114,9 @@ Pet preset boja, debljina linije 2/3/4px. Undo/redo (`Ctrl+Z` / `Ctrl+Y`) radi k
 ## Settings
 
 Settings je podeljen u tri sekcije koje se sklapaju/rasklapaju, sve se čuva automatski čim promeniš vrednost.
+
+<center><img width="50%" height="auto" alt="settings" src="https://github.com/user-attachments/assets/9ee8a0e4-2d40-452b-acc7-f3885d00c7a5" /></center>
+
 
 - **Image handling** — JPEG kvalitet (default 0.85), maksimalna širina (default 1920px), i boja za popunjavanje transparentnosti kod PNG-ova. Svaka slika se konvertuje u JPEG čim uđe u ekstenziju. Anotacije se uvek čuvaju u punom kvalitetu bez obzira na quality podešavanje, tako da editovanje nikad ne degradira sliku dvaput.
 - **Screenshot naming** — numeriše priloge redom (1.jpg, 2.jpg) tako da možeš da referenciraš konkretne slike iz opisa. Podesivo odvojeno za single task i bulk upload.
