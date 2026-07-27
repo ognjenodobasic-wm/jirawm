@@ -49,6 +49,7 @@ export function useScreenshotCapture({
   }, []);
 
   async function handleCapture() {
+    if (capturePermission !== true) return;
     if (screenshots.length >= MAX_SCREENSHOTS) return;
     setPermissionMessage(null);
 
