@@ -425,6 +425,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
       if (activeTool === 'text') {
         const text = new fabric.IText('Tekst', {
           left: x, top: y, fontSize: 16, fill: activeColor,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
           originX: 'left', originY: 'top',
           selectable: true, editable: true,
         });
@@ -442,6 +443,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
         });
         const label = new fabric.Text(String(markerCounter), {
           fontSize: 14, fill: '#ffffff', fontWeight: 'bold',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
           originX: 'center', originY: 'center', selectable: false, evented: false,
         });
         const group = new fabric.Group([circle, label], {
@@ -689,7 +691,6 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
         selectable: false,
         evented: false,
       });
-      canvas.clear();
       canvas.backgroundImage = fabricImg;
       handleResize();
       canvas.renderAll();
