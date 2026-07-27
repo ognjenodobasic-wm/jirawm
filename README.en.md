@@ -52,8 +52,6 @@ Switch between workflows in one click. A good rule of thumb: one workflow per co
 
 The everyday mode. You're on a page, you spot something worth filing — a bug, a UX issue, something to follow up on.
 
-<img width="50%" height="auto" alt="singletask" src="https://github.com/user-attachments/assets/0275f1f1-f57a-44f6-b2b6-cd384d7cee4e" />
-
 1. Open the side panel (click the extension icon or `Ctrl+Shift+S`)
 2. Select a workflow from the dropdown
 3. Click **Capture** to screenshot the current tab — or **Add** to upload an existing file
@@ -72,8 +70,6 @@ Need to attach multiple screenshots to one task — a few states of the same bug
 ## Bulk upload
 
 You've come out of a review session, a usability test, or a QA pass with a folder full of screenshots. Bulk Upload turns all of them into Jira tasks without you sitting there clicking through each one.
-
-<img width="50%" height="auto" alt="bulkupload" src="https://github.com/user-attachments/assets/67065d40-263e-40fe-a111-e147829241f3" />
 
 1. Switch to the **Bulk Upload** tab
 2. Select a workflow — it applies to every row
