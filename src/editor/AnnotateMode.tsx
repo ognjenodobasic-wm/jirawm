@@ -824,7 +824,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
           {toolButton('arrow', 'Arrow')}
           {toolButton('rect', 'Rectangle')}
           {toolButton('rectFill', 'Fill')}
-          {toolButton('marker', 'Marker')}
+          {toolButton('marker', 'Numbers')}
           {toolButton('text', 'Text')}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
