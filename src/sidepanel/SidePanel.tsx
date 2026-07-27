@@ -76,6 +76,23 @@ function SidePanel() {
     removeLegacySyncWorkflows();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function refreshAuthState() {
+    const [auth, accountId] = await Promise.all([
+      getLocal<AuthConfig>('auth'),
+      getLocal<string>('accountId'),
+    ]);
+    const hasAuth = Boolean(
+      auth &&
+        auth.domain.trim() &&
+        auth.email.trim() &&
+        auth.apiToken.trim() &&
+        accountId &&
+        accountId.trim(),
+    );
+    setIsAuthed(hasAuth);
+    setDomain(hasAuth && auth ? auth.domain : '');
+  }
+
   // Verify stored auth on mount
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +118,13 @@ function SidePanel() {
     };
   }, []);
 
+  // Re-check auth whenever Settings closes, regardless of exit path
+  useEffect(() => {
+    if (!showSettings) {
+      void refreshAuthState();
+    }
+  }, [showSettings]);
+
   function handleWorkflowSaved(saved: Workflow) {
     setShowWorkflowManager(false);
     setEditingWorkflow(undefined);
@@ -116,22 +140,6 @@ function SidePanel() {
   function handleBack() {
     setShowSettings(false);
     loadWorkflows();
-    void (async () => {
-      const [auth, accountId] = await Promise.all([
-        getLocal<AuthConfig>('auth'),
-        getLocal<string>('accountId'),
-      ]);
-      const hasAuth = Boolean(
-        auth &&
-          auth.domain.trim() &&
-          auth.email.trim() &&
-          auth.apiToken.trim() &&
-          accountId &&
-          accountId.trim(),
-      );
-      setIsAuthed(hasAuth);
-      setDomain(hasAuth && auth ? auth.domain : '');
-    })();
   }
 
   const hasWorkflows = workflows.length > 0;
