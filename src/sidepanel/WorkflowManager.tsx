@@ -93,6 +93,7 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
 
   const [name, setName] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isEditMode = Boolean(editWorkflow);
 
@@ -278,40 +279,42 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
   async function handleSave() {
     setSaveError('');
     if (!name.trim() || !projectKey || !issueTypeName || !selectedIssueType) return;
-
-    const projects = projectsState.status === 'ready' ? projectsState.projects : [];
-    const projectName = projects.find((p) => p.key === projectKey)?.name ?? projectKey;
-
-    const workflow: Workflow = {
-      id: editWorkflow?.id ?? crypto.randomUUID(),
-      name: name.trim(),
-      projectKey,
-      projectName,
-      issueType: issueTypeName,
-      hasParent,
-      parentKey: hasParent ? parentKey.trim() : undefined,
-      defaultAssignee,
-      defaultAssigneeName: defaultAssignee
-        ? assignableUsers.find((u) => u.accountId === defaultAssignee)?.displayName
-        : undefined,
-      compression: { quality: 0.85, maxWidth: 1920 },
-      requiredFieldDefaults: requiredDefaults,
-      optionalFields: [...selectedOptionalIds].map((fieldId) => ({
-        fieldId,
-        defaultValue: optionalDefaults[fieldId] || undefined,
-      })),
-      fieldMeta: selectedIssueType.fields,
-    };
-
+    setIsSaving(true);
     try {
+      const projects = projectsState.status === 'ready' ? projectsState.projects : [];
+      const projectName = projects.find((p) => p.key === projectKey)?.name ?? projectKey;
+
+      const workflow: Workflow = {
+        id: editWorkflow?.id ?? crypto.randomUUID(),
+        name: name.trim(),
+        projectKey,
+        projectName,
+        issueType: issueTypeName,
+        hasParent,
+        parentKey: hasParent ? parentKey.trim() : undefined,
+        defaultAssignee,
+        defaultAssigneeName: defaultAssignee
+          ? assignableUsers.find((u) => u.accountId === defaultAssignee)?.displayName
+          : undefined,
+        compression: { quality: 0.85, maxWidth: 1920 },
+        requiredFieldDefaults: requiredDefaults,
+        optionalFields: [...selectedOptionalIds].map((fieldId) => ({
+          fieldId,
+          defaultValue: optionalDefaults[fieldId] || undefined,
+        })),
+        fieldMeta: selectedIssueType.fields,
+      };
+
       await saveWorkflow(workflow);
       onSaved(workflow);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSaving(false);
     }
   }
 
-  const canSave = Boolean(name.trim() && projectKey && issueTypeName);
+  const canSave = Boolean(name.trim() && projectKey && issueTypeName && !isSaving);
 
   async function handleDelete() {
     if (!editWorkflow) return;
@@ -668,7 +671,12 @@ export default function WorkflowManager({ editWorkflow, onSaved, onCancel, onOpe
             opacity: canSave ? 1 : 0.5,
           }}
         >
-          Save Workflow
+          {isSaving ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+              Saving…
+            </span>
+          ) : 'Save Workflow'}
         </button>
 
         {isEditMode && (
