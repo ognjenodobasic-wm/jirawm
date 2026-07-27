@@ -765,8 +765,30 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     });
   }
 
+  const TOOL_ICONS: Partial<Record<Tool, JSX.Element>> = {
+    select: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"/></svg>
+    ),
+    arrow: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="9 5 19 5 19 15"/></svg>
+    ),
+    rect: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="6" width="16" height="12" rx="1"/></svg>
+    ),
+    rectFill: (
+      <svg viewBox="0 0 24 24" width="14" height="14"><rect x="4" y="6" width="16" height="12" rx="1" fill="currentColor"/></svg>
+    ),
+    marker: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="8"/></svg>
+    ),
+    text: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="5" y1="5" x2="19" y2="5"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+    ),
+  };
+
   const toolButton = (tool: Tool, label: string, disabled = false, title?: string) => {
     const isActive = activeTool === tool;
+    const icon = TOOL_ICONS[tool];
     return (
       <button
         key={tool}
@@ -775,7 +797,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
           if (tool === 'crop') startCropMode();
           else setActiveTool(tool);
         }}
-        title={title}
+        title={title ?? label}
         disabled={disabled}
         style={{
           padding: '6px 12px',
@@ -798,7 +820,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
             <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
           </svg>
         )}
-        {label}
+        {tool === 'crop' ? label : icon}
         {tool === 'marker' && (
           <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.2)', padding: '1px 4px', borderRadius: '8px' }}>
             M:{markerCounter}
@@ -838,9 +860,15 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
           </select>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button onClick={undo} disabled={!canUndo} style={{ padding: '6px 10px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: canUndo ? 'var(--chrome-text-primary)' : 'var(--chrome-border)', cursor: canUndo ? 'pointer' : 'not-allowed', fontSize: '12px' }}>Undo</button>
-          <button onClick={redo} disabled={!canRedo} style={{ padding: '6px 10px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: canRedo ? 'var(--chrome-text-primary)' : 'var(--chrome-border)', cursor: canRedo ? 'pointer' : 'not-allowed', fontSize: '12px' }}>Redo</button>
-          <button onClick={deleteSelected} style={{ padding: '6px 10px', border: '1px solid var(--chrome-red)', borderRadius: '4px', background: 'transparent', color: 'var(--chrome-red)', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
+          <button onClick={undo} disabled={!canUndo} title="Undo" style={{ padding: '6px 10px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: canUndo ? 'var(--chrome-text-primary)' : 'var(--chrome-border)', cursor: canUndo ? 'pointer' : 'not-allowed', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+          </button>
+          <button onClick={redo} disabled={!canRedo} title="Redo" style={{ padding: '6px 10px', border: '1px solid var(--chrome-border)', borderRadius: '4px', background: 'transparent', color: canRedo ? 'var(--chrome-text-primary)' : 'var(--chrome-border)', cursor: canRedo ? 'pointer' : 'not-allowed', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+          </button>
+          <button onClick={deleteSelected} title="Delete" style={{ padding: '6px 10px', border: '1px solid var(--chrome-red)', borderRadius: '4px', background: 'transparent', color: 'var(--chrome-red)', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
           {hasUnsavedWork ? (
             <button onClick={handleDone} disabled={isSaving} style={{ padding: '6px 14px', border: 'none', borderRadius: '4px', background: isSaving ? 'var(--chrome-border)' : 'var(--chrome-blue)', color: '#fff', cursor: isSaving ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 500, opacity: isSaving ? 0.7 : 1 }}>
               {isSaving ? 'Saving…' : 'Save'}
