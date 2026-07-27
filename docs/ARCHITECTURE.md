@@ -326,6 +326,7 @@ chrome.windows.onBoundsChanged.addListener(listener);
 5. **`chrome.permissions.request` i user gesture requirement.** Chrome zahteva da se `chrome.permissions.request` pozove sinhrono unutar click handlera — bilo koji `await` pre njega uzrokuje da Chrome odbaci zahtev tiho, bez konzolne greške. Ovo je lako promašiti jer se handleCapture normalno await-uje.
 6. **Crop konvertuje screen space u image space.** Crop rectangle se crta u screen koordinatama, ali se konvertuje u image-space koristeći `1 / scale` faktor. Pogrešan scale factor (npr. korišćenje CSS umesto display scale) crops plausible ali pogrešnu region.
 7. **Crop je blokiran kad canvas ima objekte.** Crop dugme je disabled kad je `isDirty === true` (canvas ima objekte). Ovo je namerno — crop bez anotacija je siguran, crop sa anotacijama može iseći deo anotacija.
+8. **Auth-state recheck vezan za jedno dugme, ne za gejt.** `SidePanel.tsx` je ponovo proveravao `auth`/`accountId` samo unutar `handleBack()` (Settings "← Back" dugme). Klik na tab bar dugmad (Single Task/Bulk/Workflows) je takođe zatvarao Settings (`setShowSettings(false)`) ali bez tog recheck-a, pa je `isAuthed` ostajao stale ako korisnik nije izašao baš preko Back-a. Popravljeno vezivanjem recheck-a na `useEffect([showSettings])` — svaki put kad `showSettings` postane `false`, bez obzira koje dugme ga je zatvorilo. Opšta lekcija: state koji zavisi od "da li je modal/ekran zatvoren" mora biti vezan za sam uslov gejta, ne za pojedinačna dugmiće koji do njega vode — svaki novi izlazni put inače tiho zaobilazi recheck.
 
 ---
 

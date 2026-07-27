@@ -98,7 +98,7 @@ export default function ScreenshotStrip({
                 Podesi u opcijama ekstenzije
               </button>
             </span>
-          ) : (
+          ) : capturePermission === true ? (
             <button
               type="button"
               onClick={onCapture}
@@ -115,6 +115,23 @@ export default function ScreenshotStrip({
               }}
             >
               Capture
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              style={{
+                fontSize: 11,
+                padding: '4px 10px',
+                borderRadius: 4,
+                border: 'none',
+                background: 'var(--chrome-blue)',
+                color: '#fff',
+                cursor: 'not-allowed',
+                opacity: 0.5,
+              }}
+            >
+              Checking permission...
             </button>
           )}
           <button
