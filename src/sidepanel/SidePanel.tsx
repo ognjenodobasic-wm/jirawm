@@ -49,6 +49,7 @@ function SidePanel() {
   const [domain, setDomain] = useState('');
   const [singleState, setSingleState] = useState<SingleTabState>(DEFAULT_SINGLE_STATE);
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   function loadWorkflows(preferId?: string) {
     getLocal<Workflow[]>('jirawm_workflows').then((wf) => {
@@ -231,8 +232,30 @@ function SidePanel() {
           style={{
             borderBottom: '1px solid var(--chrome-border)',
             background: 'var(--chrome-surface)',
+            position: 'relative',
           }}
         >
+          {bulkProcessing && activeTab === 'bulk' && (
+            <div style={{ position: 'absolute', bottom: -1, left: 0, right: 0, height: 2, overflow: 'hidden' }}>
+              <style>{`
+                @keyframes headerScan {
+                  0% { left: -30%; }
+                  100% { left: 100%; }
+                }
+              `}</style>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: '-30%',
+                  width: '30%',
+                  height: '100%',
+                  background: 'var(--chrome-blue)',
+                  animation: 'headerScan 1.2s linear infinite',
+                }}
+              />
+            </div>
+          )}
           {!isAuthed ? (
             <div className="flex items-center gap-2 text-xs">
               <span style={{ color: 'var(--chrome-red)' }}>⚠️ Connect Jira first</span>
@@ -356,6 +379,7 @@ function SidePanel() {
                 onOpenSettings={() => setShowSettings(true)}
                 rows={bulkRows}
                 setRows={setBulkRows}
+                onProcessingChange={setBulkProcessing}
               />
             </div>
             <div style={{ display: activeTab === 'workflows' ? 'block' : 'none' }}>
