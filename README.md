@@ -2,6 +2,8 @@
 
 🇷🇸 Srpski | [🇬🇧 English](README.en.md)
 
+<center><img width="800" height="484" alt="jirawm-singletask" src="https://github.com/user-attachments/assets/f584f88e-81ab-49fe-bd9a-d73fb0fed78b" /></center>
+
 Chrome ekstenzija koja pretvara screenshotove iz browsera u Jira taskove — bez napuštanja stranice koju gledaš.
 
 Otvori side panel, snimi ili prevuci screenshot, upiši naslov, klikni Create. Issue sleti u Jiru sa zakačenim screenshot-om za par sekundi. Imaš ceo batch spreman? Prebaci se na Bulk Upload i pusti da radi u pozadini dok ti nastavljaš dalje.
@@ -11,8 +13,6 @@ Otvori side panel, snimi ili prevuci screenshot, upiši naslov, klikni Create. I
 ## Problem koji rešava
 
 Prijavljivanje buga ili UX napomene u Jiri traje duže nego što bi trebalo. Snimiš screenshot, prebaciš se na drugi tab, tražiš pravi projekat, tražiš pravi epic, biraš tip issue-a, podešavaš sprint i prioritet, kačiš fajl, pišeš naslov. Dok završiš, izgubio si fokus i napola zaboravio šta si hteo da kažeš.
-
-<center><img width="800" height="484" alt="jirawm-singletask" src="https://github.com/user-attachments/assets/f584f88e-81ab-49fe-bd9a-d73fb0fed78b" /></center>
 
 JiraWM sve to svodi na: **snimi → naslovi → pošalji**. Sve ostalo — projekat, tip issue-a, parent epic, sprint, prioritet, assignee — živi u workflow preset-u koji se primenjuje automatski.
 
