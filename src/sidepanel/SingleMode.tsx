@@ -352,7 +352,7 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
 
       <form onSubmit={handleSubmit} className="space-y-2">
         <div>
-          <label style={labelStyle}>Summary *</label>
+          <label style={labelStyle}>Summary <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
           <input
             type="text"
             value={summary}
