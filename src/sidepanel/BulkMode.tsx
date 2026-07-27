@@ -101,7 +101,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
         console.error('Failed to ingest file:', file.name, err);
       }
     }
-    setRows((prev) => assignBulkFilenames([...prev, ...newRows]));
+    setRows((prev) => assignBulkFilenames([...prev.filter((row) => row.status !== 'done'), ...newRows]));
   }, [activeWorkflow?.defaultAssignee, setRows, assignBulkFilenames]);
 
   function removeRow(id: string) {
@@ -247,10 +247,16 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
       return;
     }
 
-    setStartError(null);
+    const rowsToSubmit = rows.filter((row) => row.status !== 'done');
+    if (rowsToSubmit.length === 0) return;
 
-    const tasks = (await buildTasks(rows)).map((task) => ({ ...task, workflowId: selectedWorkflowId }));
-    setRows((prev) => prev.map((row) => ({ ...row, status: 'waiting', error: undefined })));
+    setStartError(null);
+    setIsProcessing(true);
+
+    const tasks = (await buildTasks(rowsToSubmit)).map((task) => ({ ...task, workflowId: selectedWorkflowId }));
+    setRows((prev) =>
+      prev.map((row) => (row.status !== 'done' ? { ...row, status: 'waiting', error: undefined } : row)),
+    );
     await setLocal(BULK_PROGRESS_KEY, tasks);
 
     const response = await signalStartBulk(selectedWorkflowId);
@@ -293,7 +299,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
   const hasFailedRows = rows.some((row) => row.status === 'failed');
   const hasActiveRows = rows.some((row) => row.status === 'creating' || row.status === 'uploading');
   const hasUnuploadedWork = rows.some((row) => row.status !== 'done');
-  const hasEmptySummary = rows.some((row) => !row.summary.trim());
+  const hasEmptySummary = rows.some((row) => row.status !== 'done' && !row.summary.trim());
 
   useEffect(() => {
     return () => {
@@ -564,7 +570,7 @@ export default function BulkMode({ isAuthed, selectedWorkflowId, workflows, doma
             </button>
             <button
               type="button"
-              disabled={rows.length === 0 || isProcessing || hasEmptySummary}
+              disabled={rows.length === 0 || isProcessing || hasEmptySummary || !hasUnuploadedWork}
               onClick={startUpload}
               style={{
                 flex: 8,
