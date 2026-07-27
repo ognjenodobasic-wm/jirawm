@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
 import type { PendingEditor, MetadataOverrides } from '../types';
 import { buildCaptureDetailFields } from '../lib/capture-adf';
@@ -765,7 +765,7 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     });
   }
 
-  const TOOL_ICONS: Partial<Record<Tool, JSX.Element>> = {
+  const TOOL_ICONS: Partial<Record<Tool, React.ReactElement>> = {
     select: (
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"/></svg>
     ),
