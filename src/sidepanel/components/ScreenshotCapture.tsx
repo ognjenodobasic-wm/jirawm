@@ -12,6 +12,8 @@ interface ScreenshotCaptureProps {
   activeWorkflow?: Workflow | null;
   isLoading?: boolean;
   onOpenSettings?: () => void;
+  onError?: (message: string) => void;
+  onResetResult?: () => void;
 }
 
 export default function ScreenshotCapture({
@@ -20,6 +22,8 @@ export default function ScreenshotCapture({
   activeWorkflow = null,
   isLoading = false,
   onOpenSettings = () => {},
+  onError,
+  onResetResult,
 }: ScreenshotCaptureProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
@@ -46,9 +50,9 @@ export default function ScreenshotCapture({
     screenshots,
     setScreenshots,
     setSelectedId,
-    setResultKey: () => {},
-    setAttachFailed: () => {},
-    setError: () => {},
+    setResultKey: (next) => { if (next === null) onResetResult?.(); },
+    setAttachFailed: (next) => { if (!next) onResetResult?.(); },
+    setError: (msg) => { if (msg !== null) onError?.(msg); },
     activeWorkflow,
     appSettings,
   });

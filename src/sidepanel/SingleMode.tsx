@@ -1,34 +1,27 @@
 import { useEffect, useState } from 'react';
-import type { AuthConfig, ScreenshotItem, AppSettings, Workflow } from '../types';
+import type { AuthConfig, ScreenshotItem, AppSettings } from '../types';
 import { getLocal, getAppSettings } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/jira';
 import { ConnectJiraPrompt } from './ConnectJiraPrompt';
 import AssigneeSelect from './components/AssigneeSelect';
+import ScreenshotCapture from './components/ScreenshotCapture';
 import CaptureDetailsPreview from './single/CaptureDetailsPreview';
-import ScreenshotStrip from './single/ScreenshotStrip';
-import { useAnnotationEditor } from './single/useAnnotationEditor';
-import { useScreenshotCapture } from './single/useScreenshotCapture';
 import type { HistoryEntry, SingleModeProps } from './single/types';
+import type { Workflow } from '../types';
 
 export type { SingleTabState } from './single/types';
 
 export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, onOpenSettings, state, onStateChange }: SingleModeProps) {
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
+  const [resetKey, setResetKey] = useState(0);
 
-  const { screenshots, selectedId, summary, assignee, description } = state;
+  const { screenshots, summary, assignee, description } = state;
 
   const setScreenshots = (next: ScreenshotItem[] | ((prev: ScreenshotItem[]) => ScreenshotItem[])) => {
     onStateChange((prev) => ({
       ...prev,
       screenshots: typeof next === 'function' ? next(prev.screenshots) : next,
-    }));
-  };
-
-  const setSelectedId = (next: string | null | ((prev: string | null) => string | null)) => {
-    onStateChange((prev) => ({
-      ...prev,
-      selectedId: typeof next === 'function' ? next(prev.selectedId) : next,
     }));
   };
 
@@ -62,37 +55,10 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
-  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
   useEffect(() => {
     getAppSettings().then(setAppSettings);
   }, []);
-
-  const {
-    fileInputRef,
-    capturePermission,
-    permissionMessage,
-    handleCapture,
-    handleFileSelect,
-    handleRemove: removeScreenshot,
-    resetCounter,
-  } = useScreenshotCapture({
-    screenshots,
-    setScreenshots,
-    setSelectedId,
-    setResultKey,
-    setAttachFailed,
-    setError,
-    activeWorkflow,
-    appSettings,
-  });
-
-  const { openEditor } = useAnnotationEditor({ screenshots, setScreenshots, appSettings });
-
-  function handleRemove(id: string) {
-    removeScreenshot(id);
-    if (selectedId === id) setSelectedId(null);
-  }
 
   useEffect(() => {
     const wf = workflows.find((w) => w.id === selectedWorkflowId) ?? null;
@@ -101,11 +67,10 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setAssignee(wf?.defaultAssignee ?? null);
     setDescription(wf?.requiredFieldDefaults.description ?? '');
     setScreenshots([]);
-    setSelectedId(null);
     setResultKey(null);
     setAttachFailed(false);
     setError(null);
-    resetCounter();
+    setResetKey((k) => k + 1);
   }, [workflows, selectedWorkflowId]); // eslint-disable-line react-hooks/exhaustive-deps — setSummary, setDescription, etc. are wrapper functions around the parent's stable onStateChange dispatcher; listing them would cause the effect to fire every render
 
   function resetForm() {
@@ -113,12 +78,11 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
     setAssignee(activeWorkflow?.defaultAssignee ?? null);
     setDescription(activeWorkflow?.requiredFieldDefaults.description ?? '');
     setScreenshots([]);
-    setSelectedId(null);
     setResultKey(null);
     setAttachFailed(false);
     setError(null);
     setShowSuccess(false);
-    resetCounter();
+    setResetKey((k) => k + 1);
   }
 
   function truncateSummary(text: string, max = 45): string {
@@ -331,24 +295,16 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
         </div>
       )}
 
-      <ScreenshotStrip
+      <ScreenshotCapture
+        key={`${selectedWorkflowId}-${resetKey}`}
         screenshots={screenshots}
-        selectedId={selectedId}
+        onChange={(next) => setScreenshots(next)}
+        activeWorkflow={activeWorkflow}
         isLoading={isLoading}
-        capturePermission={capturePermission}
-        fileInputRef={fileInputRef}
-        onCapture={() => { void handleCapture(); }}
-        onFileSelect={handleFileSelect}
-        onOpenEditor={(index) => { void openEditor(index); }}
-        onRemove={(id) => setPendingRemoveId(id)}
         onOpenSettings={onOpenSettings}
+        onError={setError}
+        onResetResult={() => { setResultKey(null); setAttachFailed(false); }}
       />
-
-      {permissionMessage && (
-        <div className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>
-          {permissionMessage}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-2">
         <div>
@@ -508,68 +464,6 @@ export default function SingleMode({ workflows, selectedWorkflowId, isAuthed, on
           </div>
         )}
       </form>
-
-      {pendingRemoveId && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-          }}
-        >
-          <div
-            style={{
-              background: 'var(--chrome-bg)',
-              border: '1px solid var(--chrome-border)',
-              borderRadius: 8,
-              padding: 20,
-              minWidth: 280,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-            }}
-          >
-            <p style={{ fontSize: 13, color: 'var(--chrome-text-primary)', margin: '0 0 16px' }}>
-              Remove this screenshot? This can't be undone.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button
-                onClick={() => setPendingRemoveId(null)}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: 12,
-                  border: '1px solid var(--chrome-border)',
-                  borderRadius: 4,
-                  background: 'transparent',
-                  color: 'var(--chrome-text-primary)',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  handleRemove(pendingRemoveId);
-                  setPendingRemoveId(null);
-                }}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: 12,
-                  border: 'none',
-                  borderRadius: 4,
-                  background: 'var(--chrome-red)',
-                  color: '#fff',
-                  cursor: 'pointer',
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
