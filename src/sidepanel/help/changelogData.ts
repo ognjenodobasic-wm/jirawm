@@ -7,6 +7,17 @@ export type ChangelogRelease = {
 
 export const CHANGELOG_DATA: ChangelogRelease[] = [
   {
+    version: '3.3.0',
+    date: 'Juli 2026',
+    items: [
+      'Comment tab — post a comment to an existing Jira task without creating a new issue',
+      'Project + issue picker with fuzzy search by key or summary',
+      'Screenshot capture in the Comment tab reuses the Single Task capture/annotate/thumbnail flow',
+      'Shortcode-based screenshot placement ([img1], [img2]…) — insert a screenshot at a specific position in the comment text; unreferenced screenshots are appended to the end automatically',
+      'Screenshots always attach to the issue; inline embedding in the comment body is attempted automatically and falls back silently to attachment-only if unavailable',
+    ],
+  },
+  {
     version: '3.2.0',
     date: 'Juli 2026',
     items: [
