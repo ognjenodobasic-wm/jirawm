@@ -8,6 +8,9 @@ import {
   getMediaIdForAttachment,
   buildCommentADF,
   addComment,
+  buildCommentUrl,
+  updateComment,
+  resolveMediaIdWithRetry,
   type CommentScreenshotRef,
 } from '../lib/jira';
 import IssuePicker from './components/IssuePicker';
@@ -30,7 +33,7 @@ type SubmitState =
   | { status: 'submitting' }
   | { status: 'attach-partial'; failedIndices: number[]; attached: AttachedScreenshot[]; successCount: number }
   | { status: 'comment-error'; message: string; attached: AttachedScreenshot[] }
-  | { status: 'success' };
+  | { status: 'success'; issueKey: string; commentId: string; commentText: string; refs: CommentScreenshotRef[] };
 
 export default function CommentMode() {
   const [projectsState, setProjectsState] = useState<ProjectsState>({ status: 'loading' });
@@ -102,6 +105,16 @@ export default function CommentMode() {
     setSubmitState({ status: 'idle' });
   }
 
+  function handleNewCommentSameIssue() {
+    resetForm();
+  }
+
+  function handleNewCommentFullReset() {
+    setSelectedIssue(null);
+    setSelectedProject(null);
+    resetForm();
+  }
+
   async function runAttachments(
     issueKey: string,
     items: ScreenshotItem[],
@@ -125,14 +138,49 @@ export default function CommentMode() {
     return { attached, failedIndices };
   }
 
-  async function runAddComment(issueKey: string, attached: AttachedScreenshot[]) {
+  async function runAddComment(
+    issueKey: string,
+    attached: AttachedScreenshot[],
+  ): Promise<{ id: string; refs: CommentScreenshotRef[] }> {
     const refs: CommentScreenshotRef[] = attached.map((a) => ({
       shortcode: a.shortcode,
       attachmentId: a.attachmentId,
       mediaId: a.mediaId,
     }));
     const adfBody = buildCommentADF(commentText, refs);
-    await addComment(issueKey, adfBody);
+    const { id } = await addComment(issueKey, adfBody);
+    return { id, refs };
+  }
+
+  function triggerBackgroundMediaUpgrade(
+    issueKey: string,
+    commentId: string,
+    commentTextSnapshot: string,
+    refs: CommentScreenshotRef[],
+  ) {
+    const pending = refs.filter((r) => r.mediaId === null);
+    if (pending.length === 0) return;
+
+    Promise.allSettled(
+      pending.map(async (r) => ({
+        attachmentId: r.attachmentId,
+        mediaId: await resolveMediaIdWithRetry(r.attachmentId),
+      })),
+    ).then((results) => {
+      const resolved = new Map<string, string>();
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.mediaId !== null) {
+          resolved.set(result.value.attachmentId, result.value.mediaId);
+        }
+      }
+      if (resolved.size === 0) return;
+
+      const updatedRefs = refs.map((r) =>
+        resolved.has(r.attachmentId) ? { ...r, mediaId: resolved.get(r.attachmentId)! } : r,
+      );
+      const newAdfBody = buildCommentADF(commentTextSnapshot, updatedRefs);
+      void updateComment(issueKey, commentId, newAdfBody);
+    });
   }
 
   async function handleSubmit() {
@@ -158,12 +206,12 @@ export default function CommentMode() {
         return;
       }
 
-      await runAddComment(selectedIssue.key, attached);
-      setSubmitState({ status: 'success' });
-      resetForm();
+      const issueKeySnapshot = selectedIssue.key;
+      const commentTextSnapshot = commentText;
+      const { id, refs } = await runAddComment(issueKeySnapshot, attached);
+      setSubmitState({ status: 'success', issueKey: issueKeySnapshot, commentId: id, commentText: commentTextSnapshot, refs });
+      triggerBackgroundMediaUpgrade(issueKeySnapshot, id, commentTextSnapshot, refs);
     } catch (err) {
-      setSubmitState({ status: 'idle' });
-      // Surface as idle with error message via a separate error state isn't modeled; use comment-error shape
       setSubmitState({ status: 'comment-error', message: err instanceof Error ? err.message : String(err), attached: [] });
     }
   }
@@ -209,9 +257,11 @@ export default function CommentMode() {
         return;
       }
 
-      await runAddComment(selectedIssue.key, newAttached);
-      setSubmitState({ status: 'success' });
-      resetForm();
+      const issueKeySnapshot = selectedIssue.key;
+      const commentTextSnapshot = commentText;
+      const { id, refs } = await runAddComment(issueKeySnapshot, newAttached);
+      setSubmitState({ status: 'success', issueKey: issueKeySnapshot, commentId: id, commentText: commentTextSnapshot, refs });
+      triggerBackgroundMediaUpgrade(issueKeySnapshot, id, commentTextSnapshot, refs);
     } catch (err) {
       setSubmitState({
         status: 'comment-error',
@@ -229,9 +279,11 @@ export default function CommentMode() {
     setSubmitState({ status: 'submitting' });
 
     try {
-      await runAddComment(selectedIssue.key, attached);
-      setSubmitState({ status: 'success' });
-      resetForm();
+      const issueKeySnapshot = selectedIssue.key;
+      const commentTextSnapshot = commentText;
+      const { id, refs } = await runAddComment(issueKeySnapshot, attached);
+      setSubmitState({ status: 'success', issueKey: issueKeySnapshot, commentId: id, commentText: commentTextSnapshot, refs });
+      triggerBackgroundMediaUpgrade(issueKeySnapshot, id, commentTextSnapshot, refs);
     } catch (err) {
       setSubmitState({
         status: 'comment-error',
@@ -263,6 +315,53 @@ export default function CommentMode() {
     color: 'var(--chrome-text-secondary)',
     marginBottom: '2px',
   };
+
+  if (submitState.status === 'success') {
+    return (
+      <div className="p-3 space-y-3">
+        <div
+          className="rounded p-3 text-xs space-y-2"
+          style={{ background: 'rgba(30, 142, 62, 0.1)', color: 'var(--chrome-text-primary)' }}
+        >
+          <div style={{ color: 'var(--chrome-green)' }}>✓ Comment posted</div>
+          <a
+            href={buildCommentUrl(submitState.issueKey, submitState.commentId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: 'var(--chrome-blue)', textDecoration: 'underline' }}
+          >
+            View comment on {submitState.issueKey}
+          </a>
+        </div>
+        <button
+          type="button"
+          onClick={handleNewCommentSameIssue}
+          className="w-full rounded py-1.5 px-3 text-xs font-medium"
+          style={{
+            border: 'none',
+            background: 'var(--chrome-green)',
+            color: '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          New comment on {submitState.issueKey}
+        </button>
+        <button
+          type="button"
+          onClick={handleNewCommentFullReset}
+          className="w-full rounded py-1.5 px-3 text-xs font-medium"
+          style={{
+            border: '1px solid var(--chrome-border)',
+            background: 'transparent',
+            color: 'var(--chrome-text-primary)',
+            cursor: 'pointer',
+          }}
+        >
+          New comment
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-3 space-y-3">
@@ -395,15 +494,6 @@ export default function CommentMode() {
           >
             Retry comment
           </button>
-        </div>
-      )}
-
-      {submitState.status === 'success' && (
-        <div
-          className="rounded p-2 text-xs"
-          style={{ background: 'rgba(30, 142, 62, 0.1)', color: 'var(--chrome-green)' }}
-        >
-          Comment posted to {selectedIssue?.key}
         </div>
       )}
 
