@@ -160,4 +160,4 @@ export interface AnnotationResult {
   screenshotId: string;
 }
 
-export type PanelMode = 'single' | 'bulk' | 'workflows' | 'help';
+export type PanelMode = 'single' | 'bulk' | 'comment' | 'workflows' | 'help';

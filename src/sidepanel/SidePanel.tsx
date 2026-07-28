@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import '../styles/globals.css';
 import SingleMode from './SingleMode';
 import BulkMode from './BulkMode';
+import CommentMode from './CommentMode';
 import Settings from './Settings';
 import Help from './Help';
 import WorkflowsTab from './WorkflowsTab';
@@ -31,11 +32,12 @@ const DEFAULT_SINGLE_STATE: SingleTabState = {
 const TABS: { id: PanelMode; label: string }[] = [
   { id: 'single', label: 'Single Task' },
   { id: 'bulk', label: 'Bulk Upload' },
+  { id: 'comment', label: 'Comment' },
   { id: 'workflows', label: 'Workflows' },
 ];
 
-function isTabMode(mode: PanelMode): mode is 'single' | 'bulk' | 'workflows' {
-  return mode === 'single' || mode === 'bulk' || mode === 'workflows';
+function isTabMode(mode: PanelMode): mode is 'single' | 'bulk' | 'comment' | 'workflows' {
+  return mode === 'single' || mode === 'bulk' || mode === 'comment' || mode === 'workflows';
 }
 
 function SidePanel() {
@@ -381,6 +383,9 @@ function SidePanel() {
                 setRows={setBulkRows}
                 onProcessingChange={setBulkProcessing}
               />
+            </div>
+            <div style={{ display: activeTab === 'comment' ? 'block' : 'none' }}>
+              <CommentMode />
             </div>
             <div style={{ display: activeTab === 'workflows' ? 'block' : 'none' }}>
               <WorkflowsTab
