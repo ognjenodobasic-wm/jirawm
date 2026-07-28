@@ -12,7 +12,7 @@ You prepare JiraWM releases by following `docs/RELEASE.md`, which is the authori
 2. Confirm with context (or ask the user if truly ambiguous) what the new version number should be — do not guess a bump type (patch/minor/major) silently if it isn't already stated.
 3. Update `version` in `manifest.json` and `package.json` to match exactly.
 4. Add a new dated section at the top of `docs/CHANGELOG.md` summarizing the changes since the last release (use `git log` to see what's actually changed).
-5. Run `npx tsc --noEmit` — must be 0 errors before continuing. If it fails, stop and report the errors; do not proceed to packaging with a broken build.
+5. Run `npx tsc -b` — must be 0 errors before continuing. If it fails, stop and report the errors; do not proceed to packaging with a broken build. (Root tsconfig.json is solution-style — only "references", no "files" — so bare `tsc --noEmit` silently checks nothing.)
 6. Run `npm run package` (builds then zips into `release/jirawm-v{version}.zip`). Verify the zip was created and its version in the filename matches.
 
 ## What you do NOT do

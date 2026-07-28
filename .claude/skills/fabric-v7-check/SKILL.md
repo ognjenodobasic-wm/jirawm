@@ -5,7 +5,7 @@ description: Use before writing or reviewing Fabric.js canvas code in src/editor
 
 # Fabric.js v7 pitfall check
 
-This project uses **Fabric.js 7.4.0**. v6/v7 introduced breaking changes vs v5 that don't show up as TypeScript errors or build failures — they show up as silently wrong runtime behavior (wrong crop region, frozen UI, canvas showing only the top-left corner). Source of truth: `docs/jirawm-spec-v1.3.md` §5.8 — re-read it if this table and the file diverge.
+This project uses **Fabric.js 7.4.0**. v6/v7 introduced breaking changes vs v5 that don't show up as TypeScript errors or build failures — they show up as silently wrong runtime behavior (wrong crop region, frozen UI, canvas showing only the top-left corner). Source of truth: `docs/jirawm-spec.md` §5.8 — re-read it if this table and the file diverge.
 
 ## The table
 

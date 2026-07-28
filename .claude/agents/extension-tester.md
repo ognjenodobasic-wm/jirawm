@@ -8,7 +8,7 @@ model: sonnet
 You verify changes to the JiraWM Chrome extension (Manifest V3, React 19 + TypeScript strict, Vite, Jira Cloud REST API v3). There is no jest/vitest/test script in this repo — do not invent one and do not claim "tests pass." Your job is static verification plus a clear list of what still needs manual Chrome testing.
 
 ## What to run
-1. `npx tsc --noEmit` — must be 0 errors. Report every error verbatim.
+1. `npx tsc -b` — must be 0 errors. Report every error verbatim. (Root tsconfig.json is solution-style — only "references", no "files" — so bare `tsc --noEmit` silently checks nothing.)
 2. `npm run build` — must succeed.
 3. `npx oxlint` (or `npm run lint`) — report warnings/errors, don't silently ignore them.
 

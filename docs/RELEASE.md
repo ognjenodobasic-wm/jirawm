@@ -12,8 +12,9 @@ Ovaj dokument opisuje korake za pripremu i objavljivanje nove JiraWM verzije. Sv
    - Dodajte novu sekciju na vrhu sa datumom i promenama.
 
 3. **Proverite TypeScript**
+   (root tsconfig.json je solution-style — samo "references", bez "files" — pa goli `tsc --noEmit` ništa ne proverava)
    ```bash
-   npx tsc --noEmit
+   npx tsc -b
    ```
 
 4. **Napravite ZIP arhivu**
