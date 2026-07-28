@@ -77,7 +77,7 @@ Three isolated JavaScript contexts. They do **not** share memory.
 
 No automated test suite exists (no Jest/Vitest, no `test` script). Verification commands:
 
-- `npx tsc --noEmit` — TypeScript strict check, run before every commit
+- `npx tsc -b` — TypeScript strict check, run before every commit (root tsconfig.json is solution-style — only "references", no "files" — so bare `tsc --noEmit` silently checks nothing; `tsc -b` or `npm run build` is what actually typechecks this repo)
 - `npm run build` — production build to `/dist`; extensions require built output, there is no dev server
 
 There are no unit or integration tests to run. After code changes touching Chrome contexts, screenshots, bulk upload, or the editor, manually reload the unpacked extension in `chrome://extensions` and verify the affected flow in Chrome with a real Jira instance.
