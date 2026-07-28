@@ -2,6 +2,7 @@ import type { BulkTask, Workflow, AuthConfig } from '../types';
 import { getLocal, setLocal } from '../lib/storage';
 import { buildWorkflowFields } from '../lib/workflows';
 import { setAuth, createIssue, attachScreenshot, getIssueTypes } from '../lib/jira';
+import { checkForUpdate } from '../lib/updateCheck';
 
 const BULK_PROGRESS_KEY = 'jirawm_bulk_progress';
 
@@ -14,6 +15,7 @@ type BulkMessage = {
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('JiraWM installed.');
+  chrome.alarms.create('updateCheck', { periodInMinutes: 360 });
 });
 
 chrome.action.onClicked.addListener((tab) => {
@@ -54,7 +56,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     // Chrome's MV3 service workers are terminated when idle; setting an alarm with a
     // periodic listener is the documented pattern to extend worker lifetime.
   }
+  if (alarm.name === 'updateCheck') {
+    void checkForUpdate();
+  }
 });
+
+chrome.alarms.create('updateCheck', { periodInMinutes: 360 });
+void checkForUpdate();
 
 async function saveProgress(tasks: BulkTask[]): Promise<void> {
   await setLocal(BULK_PROGRESS_KEY, tasks);
