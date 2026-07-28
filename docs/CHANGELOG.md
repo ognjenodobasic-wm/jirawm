@@ -1,13 +1,30 @@
 # JiraWM — Changelog
 
+## 3.4.0 — Update notifications
+
+### Added
+- Automatic check for new GitHub releases — compares the installed extension version against the latest tagged release and looks for a `.zip` release asset.
+- Background service worker checks for updates once on startup and then every 6 hours via a scheduled alarm.
+- Dismissible update banner at the bottom of the side panel with a "Download" link to the latest release; dismissing it remembers that version so the banner won't reappear until a newer one is available.
+- Persistent update indicator at the bottom of the Help panel that always shows when an update is available, independent of whether the global banner was dismissed.
+
 ## 3.3.0 — Comment tab
 
 ### Added
 - Comment tab — post a comment to an existing Jira task without creating a new issue.
 - Project + issue picker with fuzzy search by key or summary.
-- Screenshot capture in the Comment tab reuses the Single Task capture/annotate/thumbnail flow.
-- Shortcode-based screenshot placement ([img1], [img2]…) — insert a screenshot at a specific position in the comment text; unreferenced screenshots are appended to the end automatically.
-- Screenshots always attach to the issue; inline embedding in the comment body is attempted automatically and falls back silently to attachment-only if unavailable.
+- Screenshot capture in the Comment tab reuses the Task capture/annotate/thumbnail flow.
+- Each screenshot gets a shortcode token matching its real attachment filename (e.g. "[1-filename.jpg]"), shown as a clickable chip that inserts the token at the cursor position in the comment text.
+- Left in the comment text, a token is also a clickable link to a 1400x1400 thumbnail preview of that screenshot (not the full-resolution original).
+- Screenshots not referenced by a token still attach normally to the issue, just without a link in the comment text — there is no automatic append-to-end behavior.
+- After posting, a success view shows a link to view the comment directly on the issue, plus "New comment on {issue}" (keeps the same issue, clears the form) and "New comment" (full reset) buttons.
+
+### Changed
+- Bulk tab label shortened from "Bulk Upload" to "Bulk" in the tab bar.
+- Help panel documentation updated to say "Task" instead of "Single Task", matching the already-renamed tab label.
+
+### Fixed
+- Tab content panes (Task, Bulk, Workflows, Help) no longer collapse to content height — they now fill the available panel height.
 
 ## 3.2.0 — Bulk upload UX overhaul, workflow safeguards, and visual polish
 

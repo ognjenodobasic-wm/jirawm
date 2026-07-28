@@ -42,6 +42,12 @@ export default function IntroSection() {
           ]}
         />
       </Card>
+
+      <Text>
+        When a new version is available, a yellow banner appears at the bottom of the panel with a
+        download link; if you dismiss it, a matching indicator still shows here at the bottom of
+        the Help panel until you're on the latest version.
+      </Text>
     </div>
   );
 }
