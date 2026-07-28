@@ -299,7 +299,7 @@ export async function attachScreenshot(
   issueKey: string,
   dataUrl: string,
   filename: string,
-): Promise<{ id: string; content: string }> {
+): Promise<{ id: string; content: string; thumbnailUrl: string }> {
   const [header, base64] = dataUrl.split(',');
   const mimeMatch = header.match(/data:([^;]+)/);
   const mime = mimeMatch ? mimeMatch[1] : 'image/png';
@@ -330,7 +330,9 @@ export async function attachScreenshot(
   }
 
   const data = (await res.json()) as Array<{ id: string; content: string }>;
-  return { id: data[0].id, content: data[0].content };
+  const { domain } = requireAuth();
+  const thumbnailUrl = `https://${domain}.atlassian.net/rest/api/3/attachment/thumbnail/${data[0].id}?width=1400&height=1400&fallbackToDefault=true`;
+  return { id: data[0].id, content: data[0].content, thumbnailUrl };
 }
 
 export interface CommentLinkToken {

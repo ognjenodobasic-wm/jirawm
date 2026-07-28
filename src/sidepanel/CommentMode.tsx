@@ -18,7 +18,7 @@ interface AttachedScreenshot {
   attachmentId: string;
   shortcode: number;
   filename: string;
-  contentUrl: string;
+  thumbnailUrl: string;
 }
 
 type ProjectsState =
@@ -125,8 +125,8 @@ export default function CommentMode() {
       const shortcode = shortcodeMap.get(item.id) ?? i + 1;
       const filename = `${shortcode}-${item.filename}`;
       try {
-        const { id: attachmentId, content } = await attachScreenshot(issueKey, item.dataUrl, filename);
-        attached.push({ screenshotId: item.id, attachmentId, shortcode, filename: item.filename, contentUrl: content });
+        const { id: attachmentId, thumbnailUrl } = await attachScreenshot(issueKey, item.dataUrl, filename);
+        attached.push({ screenshotId: item.id, attachmentId, shortcode, filename: item.filename, thumbnailUrl });
       } catch {
         failedIndices.push(i);
       }
@@ -138,7 +138,7 @@ export default function CommentMode() {
   async function runAddComment(issueKey: string, attached: AttachedScreenshot[]): Promise<{ id: string }> {
     const linkTokens: CommentLinkToken[] = attached.map((a) => ({
       token: `[${a.shortcode}-${a.filename}]`,
-      url: a.contentUrl,
+      url: a.thumbnailUrl,
     }));
     const adfBody = buildCommentADF(commentText, linkTokens);
     const { id } = await addComment(issueKey, adfBody);
@@ -199,8 +199,8 @@ export default function CommentMode() {
         const shortcode = shortcodeMap.get(item.id) ?? idx + 1;
         const filename = `${shortcode}-${item.filename}`;
         try {
-          const { id: attachmentId, content } = await attachScreenshot(selectedIssue.key, item.dataUrl, filename);
-          newAttached.push({ screenshotId: item.id, attachmentId, shortcode, filename: item.filename, contentUrl: content });
+          const { id: attachmentId, thumbnailUrl } = await attachScreenshot(selectedIssue.key, item.dataUrl, filename);
+          newAttached.push({ screenshotId: item.id, attachmentId, shortcode, filename: item.filename, thumbnailUrl });
           retrySuccess++;
         } catch {
           stillFailed.push(idx);
