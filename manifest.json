@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "JiraWM",
-  "version": "3.4.1",
+  "version": "3.4.2",
   "description": "Jira task creator — screenshot to subtask",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwRIkCSKc9lhtbGQW+ew6Jzz/CSdh/TSNej6mEuYWEB8KBTh+C3e3r9iObwstvVufd3FmtFk+WTaXM/b6eAZAP0aMFK/zhwQhK0BVMgUSoVcIS14HCZ/vzn7J7bI0tJYBOW8tYYXbETEuJ/w4Ec4pmHu42jNWMTVsoqvbBEny38D/zZTm5f43qvRSo+at4ikDR+dNGa3l26pDhTGe+cjosZ62LWe34WG2H46B6grM69I79rhcNvhmphAyiTvn1XsGESjslOuVl0cLtWeYC9aNLesGYWlSlBkD5DKrhcWBPouyCRy/NIbuoJJDtkPud+D8mKuwuEvBvOaTPWe9hqqCNwIDAQAB",
   "permissions": [

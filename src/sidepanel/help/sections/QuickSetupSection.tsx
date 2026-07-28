@@ -37,7 +37,7 @@ export default function QuickSetupSection() {
       <Step
         number={3}
         title="Create your first workflow"
-        text="From the Task or Bulk Upload tab, click “+ New workflow”. Follow the 5-step guide: pick project → issue type → optional parent task → set required field defaults → name it and save."
+        text="From the Task or Bulk tab, click “+ New workflow”. Follow the 5-step guide: pick project → issue type → optional parent task → set required field defaults → name it and save."
       />
 
       <Divider />
@@ -70,8 +70,8 @@ export default function QuickSetupSection() {
       <Card>
         <h3 style={cardHeadingStyle}>Screenshot naming</h3>
         <Text>
-          Attaches a number to each screenshot so you can reference them from the description. Single
-          task names them 1.jpg, 2.jpg in the order they appear in the strip. Bulk upload prefixes the
+          Attaches a number to each screenshot so you can reference them from the description. Task
+          names them 1.jpg, 2.jpg in the order they appear in the strip. Bulk prefixes the
           filename (e.g. 1 - login-error.jpg). Numbers are never reused — deleting screenshot 2 does
           not renumber screenshot 3.
         </Text>

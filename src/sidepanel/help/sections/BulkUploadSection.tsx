@@ -3,7 +3,7 @@ import { ActionList, Card, Divider, SectionTitle, Subtitle, Text, cardHeadingSty
 export default function BulkUploadSection() {
   return (
     <div>
-      <SectionTitle>Bulk upload</SectionTitle>
+      <SectionTitle>Bulk</SectionTitle>
       <Subtitle>Turn a folder of screenshots into Jira tasks without sitting and waiting.</Subtitle>
 
       <ActionList

@@ -25,7 +25,7 @@ export default function IntroSection() {
               and create one Jira task.
             </>,
             <>
-              <strong>Bulk Upload:</strong> Drop a folder of screenshots and turn each one into a
+              <strong>Bulk:</strong> Drop a folder of screenshots and turn each one into a
               separate Jira task in the background.
             </>,
             <>
