@@ -30,7 +30,7 @@ const DEFAULT_SINGLE_STATE: SingleTabState = {
 };
 
 const TABS: { id: PanelMode; label: string }[] = [
-  { id: 'single', label: 'Single Task' },
+  { id: 'single', label: 'Task' },
   { id: 'bulk', label: 'Bulk Upload' },
   { id: 'comment', label: 'Comment' },
   { id: 'workflows', label: 'Workflows' },
