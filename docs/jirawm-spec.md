@@ -2,6 +2,8 @@
 
 **Version: 1.3 | Date: Juli 2026**
 
+> This document is not versioned by filename — it is updated in place to reflect current state. See docs/CHANGELOG.md for what shipped when.
+
 Chrome Extension (Manifest V3) — Side Panel UI za kreiranje Jira subtaskova iz screenshotova. Interna upotreba. Bez servera, baze i OAuth-a.
 
 > Napomena: Ovaj dokument je prvi zapisani spec u repo-u. Ranije verzije (v1.0/v1.1) nisu postojale kao fajl — istorija ispod je rekonstruisana iz stanja projekta (CLAUDE.md faze). v1.2 je bio autoritativan; v1.3 dodaje Fazu 5.
@@ -37,7 +39,7 @@ Tri odvojena JS konteksta (Side Panel UI, Background Service Worker, Editor Tab 
 
 ## 4. Funkcionalnosti
 
-### 4.1 Single Task Mod
+### 4.1 Task Mod
 
 Kreiranje jednog issue-a sa jednim ili više screenshotova. Sva Jira polja dolaze iz izabranog workflowa; korisnik ručno unosi samo summary i (opciono) description.
 
@@ -59,6 +61,22 @@ Model podataka za screenshotove: vidi §9.
 
 Kreiranje više issue-a odjednom iz skupa fajlova. Obrada je **sekvencijalna** u background workeru, sa progresom preko `chrome.storage.local` (`jirawm_bulk_progress`) i `keepAlive` alarmom. Retry samo neuspelih. Detalji flow-a: [`ARCHITECTURE.md`](ARCHITECTURE.md) → Bulk mod.
 
+### 4.3 Comment Tab (Faza 6)
+
+Dodaje komentar na postojeći Jira issue, bez kreiranja novog. Komponenta: `src/sidepanel/CommentMode.tsx`.
+
+| Funkcija | Status | Detalji |
+|----------|--------|---------|
+| Project + issue picker | Done | Izbor projekta iz dropdowna, zatim fuzzy search issue-a po key-u ili summary-ju (`IssuePicker`) |
+| Screenshot capture | Done | Isti `ScreenshotCapture` shared component kao Task tab — capture/annotate/thumbnail flow se ponovo koristi, ne duplira |
+| Shortcode tokeni | Done | Svaki screenshot dobija token oblika `[N-filename]`, gde je filename stvarno ime attachmenta na Jiri. Klik na chip ubacuje token na poziciju kursora u komentaru |
+| Token kao link | Done | Ako token ostane u tekstu komentara, on je i klikabilan link ka 1400×1400 thumbnail preview-u tog screenshota (ne ka originalu pune rezolucije) |
+| Attach bez tokena | Done | Screenshotovi na koje se ne referencira token i dalje se attach-uju na issue, samo bez linka u telu komentara — nema automatskog append-a na kraj |
+| Submit | Done | `POST /issue/{key}/comment`, ADF telo (`buildCommentADF`) |
+| Partial attach failure | Done | `attach-partial` state — prikazuje X/N uploaded, dugme "Retry failed screenshots" |
+| Comment post failure | Done | `comment-error` state — prikazuje poruku, dugme "Retry comment" |
+| Success view | Done | Link na komentar (`buildCommentUrl`), dugme "New comment on {issue}" (zadržava issue, resetuje formu) i "New comment" (pun reset) |
+
 ---
 
 ## 5. Workflow sistem
@@ -76,6 +94,14 @@ Svi pozivi kroz `apiFetch()` u `src/lib/jira.ts` (nula fetch-eva van tog fajla).
 ## 8. Storage model
 
 Puna mapa ključeva (area, sadržaj, pisci/čitači) je u [`ARCHITECTURE.md`](ARCHITECTURE.md) → Chrome Storage mapa. Pravila: token/email/domain uvek `local`; workflowi uvek `sync`; nikad `localStorage`.
+
+**Update notification ključevi** (`chrome.storage.local`):
+- `updateInfo` — `{ latestVersion, downloadUrl, checkedAt }`, piše `checkForUpdate()` (`src/lib/updateCheck.ts`) kad je dostupna novija verzija na GitHub Releases, briše se ako trenutna verzija više nije zastarela. Čitaju `UpdateBanner.tsx` i Help panel notice.
+- `dismissedUpdateVersion` — verzija koju je korisnik odbacio u `UpdateBanner`; piše i čita samo `UpdateBanner.tsx`.
+
+`src/background/worker.ts` registruje alarm `updateCheck` (svakih 360 minuta) koji poziva `checkForUpdate()`, plus jedan poziv odmah pri startu workera.
+
+**Verzionisanje (patch auto-bump):** pre-commit hook (`simple-git-hooks`, skripta `scripts/bump-patch-version.mjs`) automatski inkrementira patch broj u `manifest.json` na svaki commit i ogleda ga u `package.json`. `manifest.json` je izvor istine; `package.json` samo prati. Minor/major bump ostaje ručan.
 
 ## 9. Screenshot model (Faza 4)
 
@@ -113,7 +139,7 @@ Detaljno u [`ARCHITECTURE.md`](ARCHITECTURE.md) → Poznate zamke. Sažetak: egz
 
 ## 13. Faze razvoja
 
-- [x] **Faza 1 — Single Task**: capture → create issue → attach screenshot
+- [x] **Faza 1 — Task**: capture → create issue → attach screenshot
 - [x] **Faza 2 — Bulk mod**: drag/drop, sekvencijalni background upload, retry failed
 - [x] **Faza 3 — Workflow polish**: Jira-driven wizard, edit/delete, export/import, parent search, field serialization
 - [x] **Faza 4 — Više screenshotova po tasku**
@@ -125,6 +151,7 @@ Detaljno u [`ARCHITECTURE.md`](ARCHITECTURE.md) → Poznate zamke. Sažetak: egz
   > Kompletno kao of Juli 2026.
 
 - [x] **Faza 5 — Screenshot Preview i Annotation Editor** (popup, Fabric.js v7, Juli 2026)
+- [x] **Faza 6 — Comment Tab**: komentar na postojeći Jira issue — project/issue picker, screenshot capture reuse iz Task taba, shortcode tokeni sa linkom ka thumbnail preview-u (vidi §4.3, Juli 2026)
 
 ---
 
