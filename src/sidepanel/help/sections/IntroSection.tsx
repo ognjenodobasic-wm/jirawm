@@ -9,24 +9,29 @@ export default function IntroSection() {
       </Subtitle>
 
       <Text>
-        The tab bar shows <strong>Single Task</strong>, <strong>Bulk Upload</strong> and{' '}
-        <strong>Workflows</strong> on the left, with <strong>Help</strong> and the{' '}
+        The tab bar shows <strong>Task</strong>, <strong>Bulk</strong>, <strong>Comment</strong>{' '}
+        and <strong>Workflows</strong> on the left, with <strong>Help</strong> and the{' '}
         <strong>⚙️</strong> settings button on the right. Below the tabs, a sticky row shows the
-        selected workflow with “+ New” and “Edit” links — it only appears on the Single Task and Bulk
-        Upload tabs.
+        selected workflow with “+ New” and “Edit” links — it only appears on the Task and Bulk
+        tabs.
       </Text>
 
       <Card>
-        <h3 style={cardHeadingStyle}>The four tabs</h3>
+        <h3 style={cardHeadingStyle}>The five tabs</h3>
         <ActionList
           items={[
             <>
-              <strong>Single Task:</strong> Capture the current tab or upload files, add a summary,
+              <strong>Task:</strong> Capture the current tab or upload files, add a summary,
               and create one Jira task.
             </>,
             <>
               <strong>Bulk Upload:</strong> Drop a folder of screenshots and turn each one into a
               separate Jira task in the background.
+            </>,
+            <>
+              <strong>Comment:</strong> Post a comment to an existing Jira task with a
+              project/issue picker, reused screenshot capture, and filename-based shortcode
+              tokens that link to a thumbnail preview.
             </>,
             <>
               <strong>Workflows:</strong> Create, edit, import and export saved task templates.
