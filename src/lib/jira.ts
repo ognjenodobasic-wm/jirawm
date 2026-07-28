@@ -299,7 +299,7 @@ export async function attachScreenshot(
   issueKey: string,
   dataUrl: string,
   filename: string,
-): Promise<void> {
+): Promise<{ id: string }> {
   const [header, base64] = dataUrl.split(',');
   const mimeMatch = header.match(/data:([^;]+)/);
   const mime = mimeMatch ? mimeMatch[1] : 'image/png';
@@ -328,6 +328,9 @@ export async function attachScreenshot(
     const body = await res.text().catch(() => '');
     throw new Error(`Attach screenshot failed ${res.status}: ${body}`);
   }
+
+  const data = (await res.json()) as Array<{ id: string }>;
+  return { id: data[0].id };
 }
 
 // Local types for raw Jira API shapes — not exported
