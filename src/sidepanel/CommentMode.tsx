@@ -75,7 +75,7 @@ export default function CommentMode() {
   }
 
   function insertShortcode(shortcode: number, filename: string) {
-    const token = `[${shortcode} - ${filename}]`;
+    const token = `[${shortcode}-${filename}]`;
     const textarea = textareaRef.current;
     if (!textarea) {
       setCommentText((prev) => prev + token);
@@ -120,7 +120,7 @@ export default function CommentMode() {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const shortcode = shortcodeMap.get(item.id) ?? i + 1;
-      const filename = `${shortcode} - ${item.filename}`;
+      const filename = `${shortcode}-${item.filename}`;
       try {
         const { id: attachmentId } = await attachScreenshot(issueKey, item.dataUrl, filename);
         attached.push({ screenshotId: item.id, attachmentId, shortcode });
@@ -190,7 +190,7 @@ export default function CommentMode() {
         const item = screenshots[idx];
         if (!item) continue;
         const shortcode = shortcodeMap.get(item.id) ?? idx + 1;
-        const filename = `${shortcode} - ${item.filename}`;
+        const filename = `${shortcode}-${item.filename}`;
         try {
           const { id: attachmentId } = await attachScreenshot(selectedIssue.key, item.dataUrl, filename);
           newAttached.push({ screenshotId: item.id, attachmentId, shortcode });
@@ -383,7 +383,7 @@ export default function CommentMode() {
                   fontFamily: 'monospace',
                 }}
               >
-                [{shortcode} - {s.filename}]
+                [{shortcode}-{s.filename}]
               </button>
             );
           })}
