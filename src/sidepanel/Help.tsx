@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import BulkUploadSection from './help/sections/BulkUploadSection';
 import ChangelogSection from './help/sections/ChangelogSection';
+import CommentSection from './help/sections/CommentSection';
 import EditorSection from './help/sections/EditorSection';
 import FeedbackSection from './help/sections/FeedbackSection';
 import IntroSection from './help/sections/IntroSection';
@@ -14,6 +15,7 @@ type HelpSection =
   | 'quicksetup'
   | 'single'
   | 'bulk'
+  | 'comment'
   | 'screenshot'
   | 'editor'
   | 'workflows'
@@ -23,8 +25,9 @@ type HelpSection =
 const SECTIONS: { id: HelpSection; label: string }[] = [
   { id: 'intro', label: 'Intro' },
   { id: 'quicksetup', label: 'Quick setup' },
-  { id: 'single', label: 'Single task' },
+  { id: 'single', label: 'Task' },
   { id: 'bulk', label: 'Bulk upload' },
+  { id: 'comment', label: 'Comment' },
   { id: 'screenshot', label: 'Screenshot' },
   { id: 'editor', label: 'Editor' },
   { id: 'workflows', label: 'Workflows' },
@@ -49,6 +52,8 @@ function HelpContent({ section }: { section: HelpSection }) {
       return <SingleTaskSection />;
     case 'bulk':
       return <BulkUploadSection />;
+    case 'comment':
+      return <CommentSection />;
     case 'screenshot':
       return <ScreenshotSection />;
     case 'editor':
