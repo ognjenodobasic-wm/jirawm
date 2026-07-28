@@ -8,6 +8,7 @@ import Settings from './Settings';
 import Help from './Help';
 import WorkflowsTab from './WorkflowsTab';
 import WorkflowManager from './WorkflowManager';
+import UpdateBanner from './UpdateBanner';
 import type { AuthConfig, Workflow, PanelMode, ScreenshotItem } from '../types';
 import { getLocal } from '../lib/storage';
 import { removeLegacySyncWorkflows } from '../lib/workflows';
@@ -402,6 +403,8 @@ function SidePanel() {
           </>
         )}
       </main>
+      {/* This must remain the last child of the root layout, so that any sticky footer element added inside <main> in the future renders visually above this banner, not below it. */}
+      <UpdateBanner />
     </div>
   );
 }
