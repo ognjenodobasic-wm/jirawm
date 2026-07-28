@@ -8,6 +8,7 @@ import {
   buildCommentADF,
   addComment,
   buildCommentUrl,
+  type CommentLinkToken,
 } from '../lib/jira';
 import IssuePicker from './components/IssuePicker';
 import ScreenshotCapture from './components/ScreenshotCapture';
@@ -16,6 +17,8 @@ interface AttachedScreenshot {
   screenshotId: string;
   attachmentId: string;
   shortcode: number;
+  filename: string;
+  contentUrl: string;
 }
 
 type ProjectsState =
@@ -122,8 +125,8 @@ export default function CommentMode() {
       const shortcode = shortcodeMap.get(item.id) ?? i + 1;
       const filename = `${shortcode}-${item.filename}`;
       try {
-        const { id: attachmentId } = await attachScreenshot(issueKey, item.dataUrl, filename);
-        attached.push({ screenshotId: item.id, attachmentId, shortcode });
+        const { id: attachmentId, content } = await attachScreenshot(issueKey, item.dataUrl, filename);
+        attached.push({ screenshotId: item.id, attachmentId, shortcode, filename: item.filename, contentUrl: content });
       } catch {
         failedIndices.push(i);
       }
@@ -132,8 +135,12 @@ export default function CommentMode() {
     return { attached, failedIndices };
   }
 
-  async function runAddComment(issueKey: string): Promise<{ id: string }> {
-    const adfBody = buildCommentADF(commentText);
+  async function runAddComment(issueKey: string, attached: AttachedScreenshot[]): Promise<{ id: string }> {
+    const linkTokens: CommentLinkToken[] = attached.map((a) => ({
+      token: `[${a.shortcode}-${a.filename}]`,
+      url: a.contentUrl,
+    }));
+    const adfBody = buildCommentADF(commentText, linkTokens);
     const { id } = await addComment(issueKey, adfBody);
     return { id };
   }
@@ -163,7 +170,7 @@ export default function CommentMode() {
 
       const issueKeySnapshot = selectedIssue.key;
       const commentTextSnapshot = commentText;
-      const { id } = await runAddComment(issueKeySnapshot);
+      const { id } = await runAddComment(issueKeySnapshot, attached);
       setSubmitState({ status: 'success', issueKey: issueKeySnapshot, commentId: id, commentText: commentTextSnapshot });
     } catch (err) {
       setSubmitState({ status: 'comment-error', message: err instanceof Error ? err.message : String(err), attached: [] });
@@ -192,8 +199,8 @@ export default function CommentMode() {
         const shortcode = shortcodeMap.get(item.id) ?? idx + 1;
         const filename = `${shortcode}-${item.filename}`;
         try {
-          const { id: attachmentId } = await attachScreenshot(selectedIssue.key, item.dataUrl, filename);
-          newAttached.push({ screenshotId: item.id, attachmentId, shortcode });
+          const { id: attachmentId, content } = await attachScreenshot(selectedIssue.key, item.dataUrl, filename);
+          newAttached.push({ screenshotId: item.id, attachmentId, shortcode, filename: item.filename, contentUrl: content });
           retrySuccess++;
         } catch {
           stillFailed.push(idx);
@@ -212,7 +219,7 @@ export default function CommentMode() {
 
       const issueKeySnapshot = selectedIssue.key;
       const commentTextSnapshot = commentText;
-      const { id } = await runAddComment(issueKeySnapshot);
+      const { id } = await runAddComment(issueKeySnapshot, newAttached);
       setSubmitState({ status: 'success', issueKey: issueKeySnapshot, commentId: id, commentText: commentTextSnapshot });
     } catch (err) {
       setSubmitState({
@@ -233,7 +240,7 @@ export default function CommentMode() {
     try {
       const issueKeySnapshot = selectedIssue.key;
       const commentTextSnapshot = commentText;
-      const { id } = await runAddComment(issueKeySnapshot);
+      const { id } = await runAddComment(issueKeySnapshot, attached);
       setSubmitState({ status: 'success', issueKey: issueKeySnapshot, commentId: id, commentText: commentTextSnapshot });
     } catch (err) {
       setSubmitState({
