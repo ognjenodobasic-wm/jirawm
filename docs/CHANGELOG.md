@@ -1,5 +1,14 @@
 # JiraWM — Changelog
 
+## 3.3.0 — Comment tab
+
+### Added
+- Comment tab — post a comment to an existing Jira task without creating a new issue.
+- Project + issue picker with fuzzy search by key or summary.
+- Screenshot capture in the Comment tab reuses the Single Task capture/annotate/thumbnail flow.
+- Shortcode-based screenshot placement ([img1], [img2]…) — insert a screenshot at a specific position in the comment text; unreferenced screenshots are appended to the end automatically.
+- Screenshots always attach to the issue; inline embedding in the comment body is attempted automatically and falls back silently to attachment-only if unavailable.
+
 ## 3.2.0 — Bulk upload UX overhaul, workflow safeguards, and visual polish
 
 ### Added
@@ -15,11 +24,6 @@
 - Create Task button shows a spinner while submitting.
 - Hover background styling added to native select dropdown options.
 - Serbian translation of the README is now the primary README; the original English version is preserved as README.en.md.
-- Comment tab — post a comment to an existing Jira task without creating a new issue.
-- Project + issue picker with fuzzy search by key or summary.
-- Screenshot capture in the Comment tab reuses the Single Task capture/annotate/thumbnail flow.
-- Shortcode-based screenshot placement ([img1], [img2]…) — insert a screenshot at a specific position in the comment text; unreferenced screenshots are appended to the end automatically.
-- Screenshots always attach to the issue; inline embedding in the comment body is attempted automatically and falls back silently to attachment-only if unavailable.
 
 ### Fixed
 - Jira API error responses are now parsed into readable messages instead of showing raw JSON.
