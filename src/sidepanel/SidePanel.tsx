@@ -362,7 +362,7 @@ function SidePanel() {
           <Settings onBack={handleBack} />
         ) : (
           <>
-            <div style={{ display: activeTab === 'single' ? 'block' : 'none' }}>
+            <div style={{ display: activeTab === 'single' ? 'block' : 'none', height: '100%' }}>
               <SingleMode
                 workflows={workflows}
                 selectedWorkflowId={selectedWorkflowId}
@@ -372,7 +372,7 @@ function SidePanel() {
                 onStateChange={setSingleState}
               />
             </div>
-            <div style={{ display: activeTab === 'bulk' ? 'block' : 'none' }}>
+            <div style={{ display: activeTab === 'bulk' ? 'block' : 'none', height: '100%' }}>
               <BulkMode
                 isAuthed={isAuthed}
                 selectedWorkflowId={selectedWorkflowId}
@@ -387,7 +387,7 @@ function SidePanel() {
             <div style={{ display: activeTab === 'comment' ? 'block' : 'none' }}>
               <CommentMode />
             </div>
-            <div style={{ display: activeTab === 'workflows' ? 'block' : 'none' }}>
+            <div style={{ display: activeTab === 'workflows' ? 'block' : 'none', height: '100%' }}>
               <WorkflowsTab
                 workflows={workflows}
                 isAuthed={isAuthed}
@@ -396,7 +396,7 @@ function SidePanel() {
                 onWorkflowsChanged={() => loadWorkflows()}
               />
             </div>
-            <div style={{ display: activeTab === 'help' ? 'block' : 'none' }}>
+            <div style={{ display: activeTab === 'help' ? 'block' : 'none', height: '100%' }}>
               <Help />
             </div>
           </>
