@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getLocal } from '../lib/storage';
 import BulkUploadSection from './help/sections/BulkUploadSection';
 import ChangelogSection from './help/sections/ChangelogSection';
 import CommentSection from './help/sections/CommentSection';
@@ -69,12 +70,67 @@ function HelpContent({ section }: { section: HelpSection }) {
   }
 }
 
+interface UpdateInfo {
+  latestVersion: string;
+  downloadUrl: string;
+  checkedAt: string;
+}
+
+function UpdateIndicator() {
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | undefined>();
+
+  useEffect(() => {
+    getLocal<UpdateInfo>('updateInfo').then((value) => setUpdateInfo(value ?? undefined));
+
+    const listener = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      areaName: string,
+    ) => {
+      if (areaName !== 'local') return;
+      if ('updateInfo' in changes) {
+        setUpdateInfo((changes.updateInfo.newValue as UpdateInfo | undefined) ?? undefined);
+      }
+    };
+
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
+
+  if (!updateInfo) return null;
+
+  return (
+    <div
+      style={{
+        flexShrink: 0,
+        textAlign: 'center',
+        padding: '8px 12px',
+        fontSize: '12px',
+        background: '#fff3cd',
+        borderTop: '1px solid #e6c200',
+        color: 'var(--chrome-text-primary)',
+      }}
+    >
+      New version {updateInfo.latestVersion} is available.{' '}
+      <a
+        href={updateInfo.downloadUrl}
+        target="_blank"
+        rel="noreferrer"
+        style={{ color: 'var(--chrome-blue)', textDecoration: 'underline' }}
+      >
+        Download
+      </a>
+    </div>
+  );
+}
+
 export default function Help() {
   const [activeSection, setActiveSection] = useState<HelpSection>('intro');
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col h-full">
       <style>{SCROLLBAR_CSS}</style>
+
+      <div className="flex" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
       {/* Left sidebar navigation */}
       <nav
@@ -138,6 +194,9 @@ export default function Help() {
       >
         <HelpContent section={activeSection} />
       </div>
+      </div>
+
+      <UpdateIndicator />
     </div>
   );
 }
