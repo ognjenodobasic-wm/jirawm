@@ -1,7 +1,7 @@
 {
   "name": "jirawm",
   "private": true,
-  "version": "3.4.0",
+  "version": "3.4.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "generate-key": "node scripts/generate-key.mjs",
-    "package": "npm run build && node scripts/package.mjs"
+    "package": "npm run build && node scripts/package.mjs",
+    "prepare": "simple-git-hooks"
   },
   "dependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.33",
@@ -27,8 +28,12 @@
     "@vitejs/plugin-react": "^6.0.3",
     "archiver": "^8.0.0",
     "oxlint": "^1.71.0",
+    "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.0.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "node scripts/bump-patch-version.mjs && git add manifest.json package.json"
   }
 }
