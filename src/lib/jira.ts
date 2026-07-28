@@ -390,6 +390,8 @@ export function buildCommentADF(text: string, screenshots: CommentScreenshotRef[
       unreferenced.delete(shortcode);
       if (ref.mediaId !== null) {
         content.push(mediaSingleNode(ref.mediaId));
+      } else {
+        content.push({ type: 'paragraph', content: [{ type: 'text', text: `[Screenshot ${shortcode} — see Attachments]` }] });
       }
     }
 
@@ -402,8 +404,12 @@ export function buildCommentADF(text: string, screenshots: CommentScreenshotRef[
   }
 
   for (const ref of screenshots) {
-    if (unreferenced.has(ref.shortcode) && ref.mediaId !== null) {
-      content.push(mediaSingleNode(ref.mediaId));
+    if (unreferenced.has(ref.shortcode)) {
+      if (ref.mediaId !== null) {
+        content.push(mediaSingleNode(ref.mediaId));
+      } else {
+        content.push({ type: 'paragraph', content: [{ type: 'text', text: `[Screenshot ${ref.shortcode} — see Attachments]` }] });
+      }
     }
   }
 
@@ -416,6 +422,26 @@ export async function addComment(issueKey: string, adfBody: object): Promise<{ i
     body: JSON.stringify({ body: adfBody }),
   })) as { id: string };
   return { id: data.id };
+}
+
+export function buildCommentUrl(issueKey: string, commentId: string): string {
+  const { domain } = requireAuth();
+  return `https://${domain}.atlassian.net/browse/${issueKey}?focusedCommentId=${commentId}`;
+}
+
+export async function updateComment(issueKey: string, commentId: string, adfBody: object): Promise<void> {
+  await apiFetch(`/issue/${issueKey}/comment/${commentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ body: adfBody }),
+  });
+}
+
+export async function resolveMediaIdWithRetry(attachmentId: string): Promise<string | null> {
+  await new Promise((r) => setTimeout(r, 2000));
+  const first = await getMediaIdForAttachment(attachmentId);
+  if (first !== null) return first;
+  await new Promise((r) => setTimeout(r, 2000));
+  return getMediaIdForAttachment(attachmentId);
 }
 
 // Local types for raw Jira API shapes — not exported
