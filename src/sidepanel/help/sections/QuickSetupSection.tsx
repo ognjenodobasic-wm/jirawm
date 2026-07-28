@@ -37,7 +37,7 @@ export default function QuickSetupSection() {
       <Step
         number={3}
         title="Create your first workflow"
-        text="From the Single Task or Bulk Upload tab, click “+ New workflow”. Follow the 5-step guide: pick project → issue type → optional parent task → set required field defaults → name it and save."
+        text="From the Task or Bulk Upload tab, click “+ New workflow”. Follow the 5-step guide: pick project → issue type → optional parent task → set required field defaults → name it and save."
       />
 
       <Divider />
