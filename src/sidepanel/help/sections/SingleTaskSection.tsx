@@ -3,7 +3,7 @@ import { ActionList, Card, Divider, SectionTitle, Subtitle, Text, cardHeadingSty
 export default function SingleTaskSection() {
   return (
     <div>
-      <SectionTitle>Single task</SectionTitle>
+      <SectionTitle>Task</SectionTitle>
       <Subtitle>Create one Jira task from the current browser tab.</Subtitle>
 
       <ActionList
