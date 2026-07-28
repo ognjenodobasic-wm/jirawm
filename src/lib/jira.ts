@@ -333,6 +333,91 @@ export async function attachScreenshot(
   return { id: data[0].id };
 }
 
+export async function getMediaIdForAttachment(attachmentId: string): Promise<string | null> {
+  try {
+    const { email, apiToken } = requireAuth();
+    const res = await fetch(`${baseUrl()}/attachment/content/${attachmentId}`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        Authorization: `Basic ${btoa(`${email}:${apiToken}`)}`,
+      },
+    });
+    const location = res.headers.get('Location');
+    if (!location) return null;
+    const match = location.match(/\/file\/([0-9a-f-]+)\/binary/i);
+    if (!match) return null;
+    return match[1];
+  } catch {
+    return null;
+  }
+}
+
+export interface CommentScreenshotRef {
+  shortcode: number;
+  attachmentId: string;
+  mediaId: string | null;
+}
+
+function mediaSingleNode(mediaId: string): object {
+  return {
+    type: 'mediaSingle',
+    attrs: { layout: 'center' },
+    content: [{ type: 'media', attrs: { type: 'file', id: mediaId, collection: '' } }],
+  };
+}
+
+export function buildCommentADF(text: string, screenshots: CommentScreenshotRef[]): object {
+  const content: object[] = [];
+  const unreferenced = new Set(screenshots.map((s) => s.shortcode));
+  const tokenRegex = /\[img(\d+)\]/g;
+
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenRegex.exec(text)) !== null) {
+    const literal = text.slice(lastIndex, match.index);
+    if (literal) {
+      content.push({ type: 'paragraph', content: [{ type: 'text', text: literal }] });
+    }
+
+    const shortcode = parseInt(match[1], 10);
+    const ref = screenshots.find((s) => s.shortcode === shortcode);
+
+    if (!ref) {
+      content.push({ type: 'paragraph', content: [{ type: 'text', text: match[0] }] });
+    } else {
+      unreferenced.delete(shortcode);
+      if (ref.mediaId !== null) {
+        content.push(mediaSingleNode(ref.mediaId));
+      }
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  const trailing = text.slice(lastIndex);
+  if (trailing) {
+    content.push({ type: 'paragraph', content: [{ type: 'text', text: trailing }] });
+  }
+
+  for (const ref of screenshots) {
+    if (unreferenced.has(ref.shortcode) && ref.mediaId !== null) {
+      content.push(mediaSingleNode(ref.mediaId));
+    }
+  }
+
+  return { type: 'doc', version: 1, content };
+}
+
+export async function addComment(issueKey: string, adfBody: object): Promise<{ id: string }> {
+  const data = (await apiFetch(`/issue/${issueKey}/comment`, {
+    method: 'POST',
+    body: JSON.stringify({ body: adfBody }),
+  })) as { id: string };
+  return { id: data.id };
+}
+
 // Local types for raw Jira API shapes — not exported
 interface RawAllowedValue {
   id: string;
