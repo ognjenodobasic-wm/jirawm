@@ -330,6 +330,7 @@ export async function attachScreenshot(
   }
 
   const data = (await res.json()) as Array<{ id: string }>;
+  console.log('[DIAG attachScreenshot] filename sent:', filename, 'raw response:', JSON.stringify(data, null, 2));
   return { id: data[0].id };
 }
 
@@ -343,9 +344,13 @@ export async function getMediaIdForAttachment(attachmentId: string): Promise<str
         Authorization: `Basic ${btoa(`${email}:${apiToken}`)}`,
       },
     });
+    console.log('[DIAG getMediaIdForAttachment] status:', res.status);
+    console.log('[DIAG getMediaIdForAttachment] is redirect:', res.status >= 300 && res.status < 400);
     const location = res.headers.get('Location');
+    console.log('[DIAG getMediaIdForAttachment] Location header:', location ?? 'MISSING');
     if (!location) return null;
     const match = location.match(/\/file\/([0-9a-f-]+)\/binary/i);
+    console.log('[DIAG getMediaIdForAttachment] regex match:', match ? match[1] : 'NO MATCH');
     if (!match) return null;
     return match[1];
   } catch {
