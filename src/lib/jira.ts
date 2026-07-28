@@ -299,7 +299,7 @@ export async function attachScreenshot(
   issueKey: string,
   dataUrl: string,
   filename: string,
-): Promise<{ id: string }> {
+): Promise<{ id: string; content: string }> {
   const [header, base64] = dataUrl.split(',');
   const mimeMatch = header.match(/data:([^;]+)/);
   const mime = mimeMatch ? mimeMatch[1] : 'image/png';
@@ -329,12 +329,51 @@ export async function attachScreenshot(
     throw new Error(`Attach screenshot failed ${res.status}: ${body}`);
   }
 
-  const data = (await res.json()) as Array<{ id: string }>;
-  return { id: data[0].id };
+  const data = (await res.json()) as Array<{ id: string; content: string }>;
+  return { id: data[0].id, content: data[0].content };
 }
 
-export function buildCommentADF(text: string): object {
-  return toADF(text);
+export interface CommentLinkToken {
+  token: string;
+  url: string;
+}
+
+export function buildCommentADF(text: string, linkTokens: CommentLinkToken[] = []): object {
+  if (linkTokens.length === 0) return toADF(text);
+
+  const content: object[] = [];
+  const pattern = linkTokens.map((t) => t.token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const tokenRegex = new RegExp(pattern);
+
+  let remaining = text;
+  const inline: object[] = [];
+
+  while (remaining.length > 0) {
+    const match = tokenRegex.exec(remaining);
+    if (!match) {
+      inline.push({ type: 'text', text: remaining });
+      break;
+    }
+
+    if (match.index > 0) {
+      inline.push({ type: 'text', text: remaining.slice(0, match.index) });
+    }
+
+    const linkToken = linkTokens.find((t) => t.token === match[0])!;
+    inline.push({
+      type: 'text',
+      text: linkToken.token,
+      marks: [{ type: 'link', attrs: { href: linkToken.url } }],
+    });
+
+    remaining = remaining.slice(match.index + match[0].length);
+  }
+
+  if (inline.length > 0) {
+    content.push({ type: 'paragraph', content: inline });
+  }
+
+  return { type: 'doc', version: 1, content };
 }
 
 export async function addComment(issueKey: string, adfBody: object): Promise<{ id: string }> {
