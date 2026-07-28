@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ScreenshotItem, AuthConfig } from '../types';
 import { getLocal } from '../lib/storage';
 import {
   setAuth,
+  getProjects,
   attachScreenshot,
   getMediaIdForAttachment,
   buildCommentADF,
@@ -19,6 +20,11 @@ interface AttachedScreenshot {
   shortcode: number;
 }
 
+type ProjectsState =
+  | { status: 'loading' }
+  | { status: 'ready'; projects: Array<{ id: string; key: string; name: string }> }
+  | { status: 'error'; message: string };
+
 type SubmitState =
   | { status: 'idle' }
   | { status: 'submitting' }
@@ -27,6 +33,8 @@ type SubmitState =
   | { status: 'success' };
 
 export default function CommentMode() {
+  const [projectsState, setProjectsState] = useState<ProjectsState>({ status: 'loading' });
+  const [selectedProject, setSelectedProject] = useState<{ id: string; key: string } | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<{ key: string; summary: string } | null>(null);
   const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
   const [shortcodeMap, setShortcodeMap] = useState<Map<string, number>>(new Map());
@@ -34,6 +42,26 @@ export default function CommentMode() {
   const [commentText, setCommentText] = useState('');
   const [submitState, setSubmitState] = useState<SubmitState>({ status: 'idle' });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const auth = await getLocal<AuthConfig>('auth');
+      if (cancelled) return;
+      if (!auth) {
+        setProjectsState({ status: 'error', message: 'Jira not configured. Open Settings first.' });
+        return;
+      }
+      setAuth(auth);
+      try {
+        const projects = await getProjects();
+        if (!cancelled) setProjectsState({ status: 'ready', projects });
+      } catch (err) {
+        if (!cancelled) setProjectsState({ status: 'error', message: err instanceof Error ? err.message : String(err) });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   function handleScreenshotsChange(next: ScreenshotItem[]) {
     setShortcodeMap((prev) => {
@@ -238,17 +266,46 @@ export default function CommentMode() {
 
   return (
     <div className="p-3 space-y-3">
-      <div>
-        <label style={labelStyle}>Issue <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
-        {/* TODO: projectId and projectKey are passed as empty strings — CommentMode has no single active project context. See blocker in Report. */}
-        <IssuePicker
-          value={selectedIssue}
-          onChange={setSelectedIssue}
-          projectId=""
-          projectKey=""
-          placeholder="Search issue by key or summary…"
-        />
+      <div className="flex flex-col gap-1">
+        <label style={labelStyle}>Project <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
+        {projectsState.status === 'loading' && (
+          <p className="text-xs" style={{ color: 'var(--chrome-text-secondary)' }}>Loading projects…</p>
+        )}
+        {projectsState.status === 'error' && (
+          <p className="text-xs" style={{ color: 'var(--chrome-red)' }}>✗ {projectsState.message}</p>
+        )}
+        {projectsState.status === 'ready' && (
+          <select
+            value={selectedProject?.key ?? ''}
+            onChange={(e) => {
+              const p = projectsState.projects.find((proj) => proj.key === e.target.value) ?? null;
+              setSelectedProject(p ? { id: p.id, key: p.key } : null);
+              setSelectedIssue(null);
+            }}
+            style={inputStyle}
+          >
+            <option value="">Select a project…</option>
+            {projectsState.projects.map((p) => (
+              <option key={p.id} value={p.key}>
+                {p.key} — {p.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
+
+      {selectedProject && (
+        <div>
+          <label style={labelStyle}>Issue <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
+          <IssuePicker
+            value={selectedIssue}
+            onChange={setSelectedIssue}
+            projectId={selectedProject.id}
+            projectKey={selectedProject.key}
+            placeholder="Search issue by key or summary…"
+          />
+        </div>
+      )}
 
       <ScreenshotCapture
         screenshots={screenshots}
