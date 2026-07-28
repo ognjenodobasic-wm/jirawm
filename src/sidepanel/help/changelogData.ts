@@ -28,7 +28,7 @@ export const CHANGELOG_DATA: ChangelogRelease[] = [
       'Screenshots not referenced by a token still attach normally to the issue, just without a link in the comment text — there is no automatic append-to-end behavior',
       'After posting, a success view shows a link to view the comment directly on the issue, plus "New comment on {issue}" (keeps the same issue, clears the form) and "New comment" (full reset) buttons',
       'Bulk tab label shortened from "Bulk Upload" to "Bulk" in the tab bar',
-      'Help panel documentation updated to say "Task" instead of "Single Task", matching the already-renamed tab label',
+      'Help panel documentation updated to consistently say "Task" and "Bulk" instead of "Single Task" and "Bulk Upload", matching the already-renamed tab labels',
       'Fixed: tab content panes (Task, Bulk, Workflows, Help) no longer collapse to content height — they now fill the available panel height',
     ],
   },
