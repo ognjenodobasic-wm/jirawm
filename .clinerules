@@ -7,7 +7,7 @@ Architecture decisions happen in Claude.ai project chat — not here.
 ## Before every task
 1. Read CLAUDE.md fully
 2. Check current file state before editing — never reconstruct from memory
-3. Run npx tsc --noEmit after changes — report errors before declaring done
+3. Run npx tsc -b after changes — report errors before declaring done (root tsconfig.json is solution-style — only "references", no "files" — so bare `tsc --noEmit` silently checks nothing; `tsc -b` or `npm run build` is what actually typechecks this repo)
 
 ## Task scope
 - One concern per task
