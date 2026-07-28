@@ -79,7 +79,7 @@ c) Current project status: the "## Trenutno stanje" section from CLAUDE.md (or t
    do not assume the heading text)
 
 ```bash
-awk '/^## Trenutno stanje/{n=1} n{print} n && /^## / && !/Trenutno stanje/ && NR>1 {if (found) exit} /^## Trenutno stanje/{found=1}' CLAUDE.md
+awk '/^## Trenutno stanje/{f=1; print; next} f && /^## /{exit} f' CLAUDE.md
 ```
 
 (If the "## Trenutno stanje" heading is no longer present, read CLAUDE.md directly and
