@@ -13,8 +13,9 @@ export const CHANGELOG_DATA: ChangelogRelease[] = [
       'Comment tab — post a comment to an existing Jira task without creating a new issue',
       'Project + issue picker with fuzzy search by key or summary',
       'Screenshot capture in the Comment tab reuses the Single Task capture/annotate/thumbnail flow',
-      'Shortcode-based screenshot placement ([img1], [img2]…) — insert a screenshot at a specific position in the comment text; unreferenced screenshots are appended to the end automatically',
-      'Screenshots always attach to the issue; inline embedding in the comment body is attempted automatically and falls back silently to attachment-only if unavailable',
+      'Each screenshot gets a shortcode token matching its real attachment filename (e.g. "[1-filename.jpg]"), shown as a clickable chip that inserts the token at the cursor position in the comment text',
+      'Left in the comment text, a token is also a clickable link to a 1400x1400 thumbnail preview of that screenshot (not the full-resolution original)',
+      'Screenshots not referenced by a token still attach normally to the issue, just without a link in the comment text — there is no automatic append-to-end behavior',
     ],
   },
   {
