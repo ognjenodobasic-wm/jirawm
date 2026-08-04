@@ -33,14 +33,32 @@ type SubmitState =
   | { status: 'comment-error'; message: string; attached: AttachedScreenshot[] }
   | { status: 'success'; issueKey: string; commentId: string; commentText: string };
 
-export default function CommentMode() {
+export interface CommentTabState {
+  selectedProject: { id: string; key: string } | null;
+  selectedIssue: { key: string; summary: string } | null;
+  screenshots: ScreenshotItem[];
+  shortcodeMap: Map<string, number>;
+  nextShortcode: number;
+  commentText: string;
+}
+
+export const DEFAULT_COMMENT_STATE: CommentTabState = {
+  selectedProject: null,
+  selectedIssue: null,
+  screenshots: [],
+  shortcodeMap: new Map(),
+  nextShortcode: 1,
+  commentText: '',
+};
+
+interface CommentModeProps {
+  state: CommentTabState;
+  onStateChange: React.Dispatch<React.SetStateAction<CommentTabState>>;
+}
+
+export default function CommentMode({ state, onStateChange }: CommentModeProps) {
+  const { selectedProject, selectedIssue, screenshots, shortcodeMap, commentText } = state;
   const [projectsState, setProjectsState] = useState<ProjectsState>({ status: 'loading' });
-  const [selectedProject, setSelectedProject] = useState<{ id: string; key: string } | null>(null);
-  const [selectedIssue, setSelectedIssue] = useState<{ key: string; summary: string } | null>(null);
-  const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
-  const [shortcodeMap, setShortcodeMap] = useState<Map<string, number>>(new Map());
-  const counterRef = useRef(1);
-  const [commentText, setCommentText] = useState('');
   const [submitState, setSubmitState] = useState<SubmitState>({ status: 'idle' });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -65,29 +83,29 @@ export default function CommentMode() {
   }, []);
 
   function handleScreenshotsChange(next: ScreenshotItem[]) {
-    setShortcodeMap((prev) => {
-      const updated = new Map(prev);
+    onStateChange((prev) => {
+      const updated = new Map(prev.shortcodeMap);
+      let counter = prev.nextShortcode;
       for (const s of next) {
         if (!updated.has(s.id)) {
-          updated.set(s.id, counterRef.current++);
+          updated.set(s.id, counter++);
         }
       }
-      return updated;
+      return { ...prev, screenshots: next, shortcodeMap: updated, nextShortcode: counter };
     });
-    setScreenshots(next);
   }
 
   function insertShortcode(shortcode: number, filename: string) {
     const token = `[${shortcode}-${filename}]`;
     const textarea = textareaRef.current;
     if (!textarea) {
-      setCommentText((prev) => prev + token);
+      onStateChange((prev) => ({ ...prev, commentText: prev.commentText + token }));
       return;
     }
     const start = textarea.selectionStart ?? commentText.length;
     const end = textarea.selectionEnd ?? commentText.length;
     const next = commentText.slice(0, start) + token + commentText.slice(end);
-    setCommentText(next);
+    onStateChange((prev) => ({ ...prev, commentText: next }));
     requestAnimationFrame(() => {
       textarea.focus();
       const pos = start + token.length;
@@ -96,10 +114,13 @@ export default function CommentMode() {
   }
 
   function resetForm() {
-    setScreenshots([]);
-    setShortcodeMap(new Map());
-    counterRef.current = 1;
-    setCommentText('');
+    onStateChange((prev) => ({
+      ...prev,
+      screenshots: [],
+      shortcodeMap: new Map(),
+      nextShortcode: 1,
+      commentText: '',
+    }));
     setSubmitState({ status: 'idle' });
   }
 
@@ -108,8 +129,7 @@ export default function CommentMode() {
   }
 
   function handleNewCommentFullReset() {
-    setSelectedIssue(null);
-    setSelectedProject(null);
+    onStateChange((prev) => ({ ...prev, selectedIssue: null, selectedProject: null }));
     resetForm();
   }
 
@@ -336,8 +356,11 @@ export default function CommentMode() {
             value={selectedProject?.key ?? ''}
             onChange={(e) => {
               const p = projectsState.projects.find((proj) => proj.key === e.target.value) ?? null;
-              setSelectedProject(p ? { id: p.id, key: p.key } : null);
-              setSelectedIssue(null);
+              onStateChange((prev) => ({
+                ...prev,
+                selectedProject: p ? { id: p.id, key: p.key } : null,
+                selectedIssue: null,
+              }));
             }}
             style={inputStyle}
           >
@@ -356,7 +379,7 @@ export default function CommentMode() {
           <label style={labelStyle}>Issue <span style={{ color: 'var(--chrome-red)' }}>*</span></label>
           <IssuePicker
             value={selectedIssue}
-            onChange={setSelectedIssue}
+            onChange={(issue) => onStateChange((prev) => ({ ...prev, selectedIssue: issue }))}
             projectId={selectedProject.id}
             projectKey={selectedProject.key}
             placeholder="Search issue by key or summary…"
@@ -404,7 +427,7 @@ export default function CommentMode() {
         <textarea
           ref={textareaRef}
           value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
+          onChange={(e) => onStateChange((prev) => ({ ...prev, commentText: e.target.value }))}
           disabled={isSubmitting}
           style={{ ...inputStyle, resize: 'vertical', minHeight: '160px' }}
           placeholder="Write your comment… click a chip above to insert a screenshot token"

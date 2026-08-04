@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import '../styles/globals.css';
 import SingleMode from './SingleMode';
 import BulkMode from './BulkMode';
-import CommentMode from './CommentMode';
+import CommentMode, { DEFAULT_COMMENT_STATE, type CommentTabState } from './CommentMode';
 import Settings from './Settings';
 import Help from './Help';
 import WorkflowsTab from './WorkflowsTab';
@@ -52,6 +52,7 @@ function SidePanel() {
   const [domain, setDomain] = useState('');
   const [singleState, setSingleState] = useState<SingleTabState>(DEFAULT_SINGLE_STATE);
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
+  const [commentState, setCommentState] = useState<CommentTabState>(DEFAULT_COMMENT_STATE);
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
   function loadWorkflows(preferId?: string) {
@@ -386,7 +387,7 @@ function SidePanel() {
               />
             </div>
             <div style={{ display: activeTab === 'comment' ? 'block' : 'none' }}>
-              <CommentMode />
+              <CommentMode state={commentState} onStateChange={setCommentState} />
             </div>
             <div style={{ display: activeTab === 'workflows' ? 'block' : 'none', height: '100%' }}>
               <WorkflowsTab
