@@ -372,10 +372,16 @@ export default function CommentMode() {
         renderItemFooter={(item) => {
           const shortcode = shortcodeMap.get(item.id);
           if (shortcode === undefined) return null;
+          const fullLabel = `[${shortcode}-${item.filename}]`;
+          const MAX_CHIP_CHARS = 12;
+          const displayLabel = fullLabel.length > MAX_CHIP_CHARS
+            ? `${fullLabel.slice(0, MAX_CHIP_CHARS - 1)}…`
+            : fullLabel;
           return (
             <button
               type="button"
               onClick={() => insertShortcode(shortcode, item.filename)}
+              title={fullLabel}
               className="text-xs rounded px-1.5 py-0.5"
               style={{
                 border: '1px solid var(--chrome-border)',
@@ -383,9 +389,11 @@ export default function CommentMode() {
                 color: 'var(--chrome-text-primary)',
                 cursor: 'pointer',
                 fontFamily: 'monospace',
+                fontSize: 11,
+                whiteSpace: 'nowrap',
               }}
             >
-              [{shortcode}-{item.filename}]
+              {displayLabel}
             </button>
           );
         }}
