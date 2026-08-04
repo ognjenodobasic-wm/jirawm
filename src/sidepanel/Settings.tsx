@@ -3,6 +3,7 @@ import type { AuthConfig, AppSettings } from '../types';
 import { getLocal, setLocal, getAppSettings, saveAppSettings } from '../lib/storage';
 import { setAuth, testConnection } from '../lib/jira';
 import { hasCapturePermission, requestCapturePermission } from '../lib/permissions';
+import { fetchLatestRelease, isNewerVersion } from '../lib/updateCheck';
 import Accordion from './components/Accordion';
 import Tooltip from './components/Tooltip';
 
@@ -66,6 +67,13 @@ export default function Settings({ onBack }: SettingsProps) {
   }, []);
 
   const [capturePermission, setCapturePermission] = useState<boolean | null>(null);
+
+  const [updateChecking, setUpdateChecking] = useState(false);
+  type UpdateCheckResult =
+    | { kind: 'available'; latestVersion: string; downloadUrl: string }
+    | { kind: 'upToDate'; currentVersion: string }
+    | { kind: 'failed' };
+  const [updateCheckResult, setUpdateCheckResult] = useState<UpdateCheckResult | null>(null);
 
   useEffect(() => {
     hasCapturePermission().then(setCapturePermission).catch(() => setCapturePermission(false));
@@ -635,6 +643,62 @@ export default function Settings({ onBack }: SettingsProps) {
             )}
           </div>
         </Accordion>
+
+        {/* Updates */}
+        <div className="flex flex-col gap-2">
+          <span style={sectionTitleStyle}>Updates</span>
+          {updateCheckResult !== null && (
+            <p style={{ fontSize: 12, color: updateCheckResult.kind === 'available' ? 'var(--chrome-text-primary)' : 'var(--chrome-text-secondary)', margin: 0 }}>
+              {updateCheckResult.kind === 'available' && (
+                <>
+                  New version {updateCheckResult.latestVersion} is available.{' '}
+                  <a
+                    href={updateCheckResult.downloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--chrome-blue)', textDecoration: 'underline' }}
+                  >
+                    Download
+                  </a>
+                </>
+              )}
+              {updateCheckResult.kind === 'upToDate' && (
+                <>You're up to date (v{updateCheckResult.currentVersion}).</>
+              )}
+              {updateCheckResult.kind === 'failed' && (
+                <>Could not check for updates right now.</>
+              )}
+            </p>
+          )}
+          <button
+            type="button"
+            disabled={updateChecking}
+            onClick={() => {
+              setUpdateChecking(true);
+              void fetchLatestRelease().then((info) => {
+                const currentVersion = chrome.runtime.getManifest().version;
+                if (!info) {
+                  setUpdateCheckResult({ kind: 'failed' });
+                } else if (isNewerVersion(info.latestVersion, currentVersion)) {
+                  setUpdateCheckResult({ kind: 'available', latestVersion: info.latestVersion, downloadUrl: info.downloadUrl });
+                } else {
+                  setUpdateCheckResult({ kind: 'upToDate', currentVersion });
+                }
+                setUpdateChecking(false);
+              });
+            }}
+            className="px-3 py-1.5 text-xs rounded self-start"
+            style={{
+              border: '1px solid var(--chrome-border)',
+              background: 'var(--chrome-surface)',
+              color: updateChecking ? 'var(--chrome-text-secondary)' : 'var(--chrome-text-primary)',
+              cursor: updateChecking ? 'not-allowed' : 'pointer',
+              marginTop: 8,
+            }}
+          >
+            {updateChecking ? 'Checking…' : 'Check for updates'}
+          </button>
+        </div>
       </div>
     </div>
   );
