@@ -128,6 +128,38 @@ git push
 Report the push result explicitly — do not claim success without pasting the actual
 command output.
 
+## Step 10 — Push a release tag if the version changed
+
+After the push in Step 9 has succeeded, read the current version from manifest.json.
+
+Check whether a tag matching that version already exists on origin:
+
+```bash
+git ls-remote --tags origin | grep "v<version>"
+```
+
+If it already exists, skip this step and note: "tag v<version> already exists on
+origin, nothing to do — release workflow already ran for this version."
+
+If it does not exist (meaning this session bumped the version and it hasn't been
+released yet), run:
+
+```bash
+git tag -a v<version> -m "v<version>"
+git push origin v<version>
+```
+
+Pushing this tag triggers `.github/workflows/release.yml`, which builds, packages
+(via `npm run package`, which requires `docs/RELEASE-INSTALL.md` to exist — if that
+file is ever missing, the Action will fail loudly, which is expected and correct, not
+something this skill should work around), and publishes the GitHub release
+automatically. This skill does not need to check the Action's result — that happens on
+GitHub's side, not locally.
+
+Print a one-line reminder:
+"Tag v<version> pushed — GitHub Actions will publish the release in ~1-2 min, check
+the Releases page or `gh run list --workflow=release.yml` if you want to confirm."
+
 ## Closing note
 
 This skill assumes it is being run at the actual end of a work session — it commits
