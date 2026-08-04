@@ -369,33 +369,27 @@ export default function CommentMode() {
         onChange={handleScreenshotsChange}
         maxScreenshots={10}
         isLoading={isSubmitting}
+        renderItemFooter={(item) => {
+          const shortcode = shortcodeMap.get(item.id);
+          if (shortcode === undefined) return null;
+          return (
+            <button
+              type="button"
+              onClick={() => insertShortcode(shortcode, item.filename)}
+              className="text-xs rounded px-1.5 py-0.5"
+              style={{
+                border: '1px solid var(--chrome-border)',
+                background: 'var(--chrome-surface)',
+                color: 'var(--chrome-text-primary)',
+                cursor: 'pointer',
+                fontFamily: 'monospace',
+              }}
+            >
+              [{shortcode}-{item.filename}]
+            </button>
+          );
+        }}
       />
-
-      {screenshots.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {screenshots.map((s) => {
-            const shortcode = shortcodeMap.get(s.id);
-            if (shortcode === undefined) return null;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => insertShortcode(shortcode, s.filename)}
-                className="text-xs rounded px-1.5 py-0.5"
-                style={{
-                  border: '1px solid var(--chrome-border)',
-                  background: 'var(--chrome-surface)',
-                  color: 'var(--chrome-text-primary)',
-                  cursor: 'pointer',
-                  fontFamily: 'monospace',
-                }}
-              >
-                [{shortcode}-{s.filename}]
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       <div>
         <label style={labelStyle}>Comment</label>
