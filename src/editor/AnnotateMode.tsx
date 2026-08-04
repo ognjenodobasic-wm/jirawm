@@ -115,14 +115,29 @@ export default function AnnotateMode({ pending, onClose }: AnnotateModeProps) {
     if (!naturalW || !naturalH) return;
     const availW = (showPanel ? window.innerWidth - PANEL_WIDTH : window.innerWidth);
     const availH = window.innerHeight - TOOLBAR_HEIGHT;
-    const scale = Math.min(availW / naturalW, availH / naturalH, 1);
-    scaleRef.current = scale;
+    const newScale = Math.min(availW / naturalW, availH / naturalH, 1);
+    const oldScale = scaleRef.current || newScale;
+    const delta = newScale / oldScale;
+
+    if (delta !== 1) {
+      canvas.getObjects().forEach((obj) => {
+        obj.set({
+          left: (obj.left ?? 0) * delta,
+          top: (obj.top ?? 0) * delta,
+          scaleX: (obj.scaleX ?? 1) * delta,
+          scaleY: (obj.scaleY ?? 1) * delta,
+        });
+        obj.setCoords();
+      });
+    }
+
+    scaleRef.current = newScale;
     canvas.setDimensions({
-      width: Math.round(naturalW * scale),
-      height: Math.round(naturalH * scale),
+      width: Math.round(naturalW * newScale),
+      height: Math.round(naturalH * newScale),
     });
     if (canvas.backgroundImage instanceof fabric.FabricImage) {
-      canvas.backgroundImage.set({ scaleX: scale, scaleY: scale });
+      canvas.backgroundImage.set({ scaleX: newScale, scaleY: newScale });
     }
     canvas.renderAll();
   }, [showPanel]);
