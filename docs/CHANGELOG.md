@@ -1,5 +1,11 @@
 # JiraWM — Changelog
 
+## 3.4.14 — Comment tab shortcode chip placement
+
+### Changed
+- Screenshot shortcode chip in the Comment tab moved from a separate row below the screenshot strip to directly under its matching thumbnail, in the same scroll container.
+- Chip label is now truncated to 12 characters with an ellipsis when the shortcode/filename combination is long, with the full token shown as a native tooltip on hover.
+
 ## 3.4.0 — Update notifications
 
 ### Added

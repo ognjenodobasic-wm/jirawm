@@ -7,6 +7,14 @@ export type ChangelogRelease = {
 
 export const CHANGELOG_DATA: ChangelogRelease[] = [
   {
+    version: '3.4.14',
+    date: 'Avgust 2026',
+    items: [
+      'Screenshot shortcode chip in the Comment tab moved from a separate row below the screenshot strip to directly under its matching thumbnail',
+      'Chip label truncated to 12 characters with an ellipsis for long tokens, with the full token shown as a tooltip on hover',
+    ],
+  },
+  {
     version: '3.4.0',
     date: 'Juli 2026',
     items: [
