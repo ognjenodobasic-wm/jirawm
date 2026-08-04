@@ -46,6 +46,7 @@ export default function ScreenshotCapture({
     permissionMessage,
     handleCapture,
     handleFileSelect,
+    handleFiles,
     handleRemove: removeScreenshot,
     resetCounter: _resetCounter,
   } = useScreenshotCapture({
@@ -80,6 +81,7 @@ export default function ScreenshotCapture({
         onRemove={(id) => setPendingRemoveId(id)}
         onOpenSettings={onOpenSettings}
         renderItemFooter={renderItemFooter}
+        onFilesDrop={(files) => { void handleFiles(files); }}
       />
 
       {permissionMessage && (
