@@ -136,10 +136,10 @@ export default function CommentMode() {
   }
 
   async function runAddComment(issueKey: string, attached: AttachedScreenshot[]): Promise<{ id: string }> {
-    const linkTokens: CommentLinkToken[] = attached.map((a) => ({
-      token: `[${a.shortcode}-${a.filename}]`,
-      url: a.thumbnailUrl,
-    }));
+    const linkTokens: CommentLinkToken[] = attached.map((a) => {
+      const token = `[${a.shortcode}-${a.filename}]`;
+      return { matchToken: token, displayText: token, url: a.thumbnailUrl };
+    });
     const adfBody = buildCommentADF(commentText, linkTokens);
     const { id } = await addComment(issueKey, adfBody);
     return { id };

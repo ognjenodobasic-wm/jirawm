@@ -336,7 +336,8 @@ export async function attachScreenshot(
 }
 
 export interface CommentLinkToken {
-  token: string;
+  matchToken: string;
+  displayText: string;
   url: string;
 }
 
@@ -344,7 +345,7 @@ export function buildCommentADF(text: string, linkTokens: CommentLinkToken[] = [
   if (linkTokens.length === 0) return toADF(text);
 
   const content: object[] = [];
-  const pattern = linkTokens.map((t) => t.token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const pattern = linkTokens.map((t) => t.matchToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
   const tokenRegex = new RegExp(pattern);
 
   let remaining = text;
@@ -361,10 +362,10 @@ export function buildCommentADF(text: string, linkTokens: CommentLinkToken[] = [
       inline.push({ type: 'text', text: remaining.slice(0, match.index) });
     }
 
-    const linkToken = linkTokens.find((t) => t.token === match[0])!;
+    const linkToken = linkTokens.find((t) => t.matchToken === match[0])!;
     inline.push({
       type: 'text',
-      text: linkToken.token,
+      text: linkToken.displayText,
       marks: [{ type: 'link', attrs: { href: linkToken.url } }],
     });
 
