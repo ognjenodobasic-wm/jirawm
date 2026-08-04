@@ -3,7 +3,7 @@
 
 # JiraWM
 
-🇷🇸 Srpski | [🇬🇧 English](README.en.md)
+🇷🇸 Srpski | [🇬🇧 English](README.en.md) | [📋 Changelog](docs/CHANGELOG.md)
 
 <center><img width="800" height="484" alt="jirawm-singletask" src="https://github.com/user-attachments/assets/f584f88e-81ab-49fe-bd9a-d73fb0fed78b" /></center><br/>
 
