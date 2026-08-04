@@ -15,6 +15,7 @@ interface ScreenshotStripProps {
   onOpenEditor: (index: number) => void;
   onRemove: (id: string) => void;
   onOpenSettings: () => void;
+  renderItemFooter?: (item: ScreenshotItem, index: number) => React.ReactNode;
 }
 
 export default function ScreenshotStrip({
@@ -28,6 +29,7 @@ export default function ScreenshotStrip({
   onOpenEditor,
   onRemove,
   onOpenSettings,
+  renderItemFooter,
 }: ScreenshotStripProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showFade, setShowFade] = useState(false);
@@ -291,6 +293,7 @@ export default function ScreenshotStrip({
                   ×
                 </button>
               </div>
+              {renderItemFooter?.(item, index)}
             </div>
           ))}
         </div>

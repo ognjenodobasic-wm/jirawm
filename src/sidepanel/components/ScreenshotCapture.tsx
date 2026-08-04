@@ -14,6 +14,7 @@ interface ScreenshotCaptureProps {
   onOpenSettings?: () => void;
   onError?: (message: string) => void;
   onResetResult?: () => void;
+  renderItemFooter?: (item: ScreenshotItem, index: number) => React.ReactNode;
 }
 
 export default function ScreenshotCapture({
@@ -24,6 +25,7 @@ export default function ScreenshotCapture({
   onOpenSettings = () => {},
   onError,
   onResetResult,
+  renderItemFooter,
 }: ScreenshotCaptureProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
@@ -77,6 +79,7 @@ export default function ScreenshotCapture({
         onOpenEditor={(index) => { void openEditor(index); }}
         onRemove={(id) => setPendingRemoveId(id)}
         onOpenSettings={onOpenSettings}
+        renderItemFooter={renderItemFooter}
       />
 
       {permissionMessage && (
