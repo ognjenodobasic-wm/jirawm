@@ -1,5 +1,10 @@
 # JiraWM — Changelog
 
+## 3.6.0 — Drag-and-drop screenshots
+
+### Added
+- Image files can now be dragged and dropped directly onto the screenshot strip in any tab — the strip highlights with a blue border while a file is held over it.
+
 ## 3.5.0 — Comment tab improvements, check-for-updates, annotation fix
 
 ### Added

@@ -7,6 +7,13 @@ export type ChangelogRelease = {
 
 export const CHANGELOG_DATA: ChangelogRelease[] = [
   {
+    version: '3.6.0',
+    date: 'Avgust 2026',
+    items: [
+      'Slike se sada mogu prevući i spustiti (drag & drop) direktno na traku sa screenshotovima u bilo kom tabu — traka se označava plavom ivicom dok je fajl iznad nje',
+    ],
+  },
+  {
     version: '3.5.0',
     date: 'Avgust 2026',
     items: [

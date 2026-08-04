@@ -14,7 +14,8 @@ export default function ScreenshotSection() {
           JiraWM captures the visible area of the current tab using the browser's built-in
           screenshot API — no external tool, no clipboard, no switching apps. If page access
           hasn't been granted yet, clicking Capture triggers a one-time Chrome permission prompt.
-          You can also click Add to upload an existing image from disk instead.
+          You can also click Add to upload an existing image from disk, or drag and drop image
+          files directly onto the screenshot strip.
         </Text>
       </Card>
 
