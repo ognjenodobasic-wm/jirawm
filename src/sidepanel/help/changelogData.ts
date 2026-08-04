@@ -7,11 +7,14 @@ export type ChangelogRelease = {
 
 export const CHANGELOG_DATA: ChangelogRelease[] = [
   {
-    version: '3.4.14',
+    version: '3.5.0',
     date: 'Avgust 2026',
     items: [
-      'Screenshot shortcode chip in the Comment tab moved from a separate row below the screenshot strip to directly under its matching thumbnail',
-      'Chip label truncated to 12 characters with an ellipsis for long tokens, with the full token shown as a tooltip on hover',
+      'Novo: dugme "Check for updates" u Settings-u — odmah prikazuje da li postoji novija verzija, sa direktnim linkom za preuzimanje',
+      'Screenshot shortcode chip u Comment tabu premešten ispod odgovarajuće sličice, u istom scroll kontejneru',
+      'Chip se skraćuje na 12 karaktera sa trojicom tačaka za duge tokene, a pun naziv se prikazuje kao tooltip',
+      'Ispravka: annotation objekti (strelice, markeri, oblici) se sada pravilno skaliraju i repozicioniraju kada se prozor editora promeni',
+      'Ispravka: stanje Comment taba (projekat, issue, screenshotovi, tekst komentara) sada preživljava navigaciju na "Edit workflow" ili Settings i povratak',
     ],
   },
   {

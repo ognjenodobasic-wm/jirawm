@@ -1,10 +1,17 @@
 # JiraWM — Changelog
 
-## 3.4.14 — Comment tab shortcode chip placement
+## 3.5.0 — Comment tab improvements, check-for-updates, annotation fix
+
+### Added
+- Manual "Check for updates" button in Settings — shows whether a newer version is available, with a direct download link, without needing to check the Releases page.
 
 ### Changed
 - Screenshot shortcode chip in the Comment tab moved from a separate row below the screenshot strip to directly under its matching thumbnail, in the same scroll container.
 - Chip label is now truncated to 12 characters with an ellipsis when the shortcode/filename combination is long, with the full token shown as a native tooltip on hover.
+
+### Fixed
+- Annotation objects (arrows, markers, shapes) now rescale and reposition correctly when the annotation editor popup window is resized.
+- Comment tab state (selected project, issue, screenshots, and comment text) now survives navigating away to "Edit workflow" or Settings and returning — previously all state was lost on unmount.
 
 ## 3.4.0 — Update notifications
 
