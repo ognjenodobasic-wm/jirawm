@@ -16,6 +16,7 @@ interface ScreenshotStripProps {
   onRemove: (id: string) => void;
   onOpenSettings: () => void;
   renderItemFooter?: (item: ScreenshotItem, index: number) => React.ReactNode;
+  onFilesDrop?: (files: FileList) => void;
 }
 
 export default function ScreenshotStrip({
@@ -30,9 +31,11 @@ export default function ScreenshotStrip({
   onRemove,
   onOpenSettings,
   renderItemFooter,
+  onFilesDrop,
 }: ScreenshotStripProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showFade, setShowFade] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -53,10 +56,26 @@ export default function ScreenshotStrip({
 
   return (
     <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => {
+        setIsDragging(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        if (onFilesDrop && e.dataTransfer.files.length > 0) {
+          onFilesDrop(e.dataTransfer.files);
+        }
+      }}
       style={{
-        border: '1px solid var(--chrome-border)',
+        border: `1px solid ${isDragging ? 'var(--chrome-blue)' : 'var(--chrome-border)'}`,
         borderRadius: 8,
-        background: 'var(--chrome-bg)',
+        background: isDragging ? 'rgba(26,115,232,0.06)' : 'var(--chrome-bg)',
       }}
     >
       <div
