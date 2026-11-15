@@ -1,6 +1,6 @@
 ---
 name: End of Day
-description: Reconciles version history, syncs both changelog sources, audits Help panel content against actual current behavior, reminds about structure.md, and pushes.
+description: Reconciles version history, syncs both changelog sources, audits Help panel content against actual current behavior, updates docs/ROADMAP.md, reminds about structure.md, and pushes.
 triggers:
   - end of day
   - kraj dana
@@ -97,7 +97,16 @@ Print a reminder that docs/jirawm-spec-v1.2.md sync is intentionally deferred �
 versioned filename convention is under review and this skill does not touch it until
 that's resolved.
 
-## Step 9 — Final git safety check and push
+## Step 9 — Update docs/ROADMAP.md
+
+Rewrite `## Sada` (max 10 lines: branch, file, next concrete step — written for someone
+sitting at another machine tomorrow) and the frontmatter fields `updated` (today),
+`last_done` (one line, from Step 2's "still accurate" findings or the latest commit),
+`next_step` (one concrete line), and `state` (active/paused/blocked/parked/frozen/done,
+based on whether there's unfinished work). Do not touch `project`, `phase`, or
+`blocked_by` unless the session's findings actually changed them.
+
+## Step 10 — Final git safety check and push
 
 ```bash
 npx tsc -b
