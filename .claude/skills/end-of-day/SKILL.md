@@ -137,7 +137,7 @@ git push
 Report the push result explicitly — do not claim success without pasting the actual
 command output.
 
-## Step 10 — Push a release tag if the version changed
+## Step 11 — Push a release tag if the version changed
 
 After the push in Step 9 has succeeded, read the current version from manifest.json.
 
